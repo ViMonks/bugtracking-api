@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=bugtracking
+POSTGRES_USER=ydSmejEJGxMucsdtsEhXrMmhvvOIBjuH
+POSTGRES_PASSWORD=7HOAt1wTdYzRtoQTOnrMUuRiiwatw2G6c46HMpZr4LfnokkVt5QIrIHMAC1c6X4i
