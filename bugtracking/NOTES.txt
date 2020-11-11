@@ -1,0 +1,2 @@
+To run pytest tests: docker-compose -f local.yml run --rm django pytest
+These are not covered in the Django test run configuration.
