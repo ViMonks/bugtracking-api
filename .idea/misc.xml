@@ -3,5 +3,8 @@
   <component name="JavaScriptSettings">
     <option name="languageLevel" value="ES6" />
   </component>
+  <component name="ProjectPlainTextFileTypeManager">
+    <file url="file://$PROJECT_DIR$/bugtracking/NOTES.txt" />
+  </component>
   <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.8.6 Docker Compose (django at [C:\Users\thurm\Documents\my_apps\bugtracker_api\bugtracking\local.yml])" project-jdk-type="Python SDK" />
 </project>

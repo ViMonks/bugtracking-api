@@ -75,7 +75,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "bugtracking.users.apps.UsersConfig",
-    # Your stuff: custom apps go here
+    "bugtracking.tracker",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -276,6 +276,7 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.TokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
