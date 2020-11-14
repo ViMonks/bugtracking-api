@@ -40,3 +40,7 @@ class BakeryTest(TestCase):
 
     def test_admin_user_is_admin(self):
         assert (self.admin in self.team.get_admins())
+
+
+# TODO: I think my old method of returning team owners and such returns all members who are MEMBERS of the team in question and OWNERS of ANY team; need to make sure new method doesn't do that
+

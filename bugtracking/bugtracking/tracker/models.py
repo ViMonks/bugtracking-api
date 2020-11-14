@@ -36,7 +36,11 @@ class Team(TitleSlugDescriptionModel, models.Model):
 
     def make_admin(self, user):
         membership = self.memberships.get(user=user)
-        membership.role = 2
+        membership.role = membership.Roles.ADMIN
+        membership.save()
+
+    def add_member(self, user):
+        membership = TeamMembership.objects.create(team=self, user=user, role=TeamMembership.Roles.MEMBER)
         membership.save()
 
 
@@ -78,6 +82,15 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
 
     def __str__(self):
         return f'<Title: {self.title}, Slug: {self.slug}>'
+
+    def add_member(self, user):
+        membership = ProjectMembership.objects.create(project=self, user=user, role=ProjectMembership.Roles.DEVELOPER)
+        membership.save()
+
+    def make_manager(self, user):
+        membership = ProjectMembership.objects.get(user=user, project=self)
+        membership.role = membership.Roles.MANGER
+        membership.save()
 
 
 class ProjectMembership(TimeStampedModel, models.Model):
