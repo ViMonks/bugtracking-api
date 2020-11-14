@@ -108,6 +108,39 @@ class TestTeam(TestCase):
         assert self.team.is_user_member(self.member) == True
         assert self.team.is_user_member(self.nonmember) == False
 
+    def test_get_admins_returns_only_this_teams_admins(self):
+        other_team = Team.objects.create(title='other', description='desc')
+        other_admin = User.objects.create_user(username='other', password='password')
+        other_team.add_member(other_admin)
+        other_team.make_admin(other_admin)
+        assert other_admin in other_team.get_admins()
+        assert self.admin not in other_team.get_admins()
+        assert other_admin not in self.team.get_admins()
+
+    def test_get_non_admins(self):
+        """Returns non-admins only."""
+        assert self.team.get_non_admins().count() == 3
+        assert self.admin not in self.team.get_non_admins()
+
+    def test_users_admin_teams_queryset(self):
+        other_team = Team.objects.create(title='other', description='desc')
+        other_admin = User.objects.create_user(username='other', password='password')
+        other_team.add_member(other_admin)
+        other_team.make_admin(other_admin)
+        assert self.team in Team.objects.users_admin_teams(self.admin)
+        assert other_team not in Team.objects.users_admin_teams(self.admin)
+        assert len(Team.objects.users_admin_teams(self.member)) == 0
+
+    def test_users_member_teams_queryset(self):
+        other_team = Team.objects.create(title='other', description='desc')
+        other_admin = User.objects.create_user(username='other', password='password')
+        other_team.add_member(other_admin)
+        other_team.make_admin(other_admin)
+        assert self.team in Team.objects.users_member_teams(self.member)
+        assert other_team not in Team.objects.users_member_teams(self.admin)
+        assert len(Team.objects.users_member_teams(self.member)) == 1
+        assert len(Team.objects.users_member_teams(self.nonmember)) == 0
+
 
 class TestProject(TestCase):
     def setUp(self) -> None:
@@ -144,3 +177,67 @@ class TestProject(TestCase):
         self.project.make_manager(self.member)
         assert self.project.get_membership(self.manager).role == ProjectMembership.Roles.DEVELOPER
         assert self.project.get_membership(self.member).role == ProjectMembership.Roles.MANGER
+
+    def test_can_user_view_method(self):
+        assert self.project.can_user_view(self.member)
+        assert not self.project.can_user_view(self.nonmember)
+
+    def test_can_user_edit_method(self):
+        assert self.project.can_user_edit(self.manager)
+        assert self.project.can_user_edit(self.admin)
+        assert not self.project.can_user_edit(self.nonmember)
+        assert not self.project.can_user_edit(self.member)
+
+    def test_filter_for_team_and_user_queryset(self):
+        other_project = Project.objects.create(title='title', description='desc', team=self.team)
+        other_team = Team.objects.create(title='other', description='desc')
+        other_team_project = Project.objects.create(title='title', description='desc', team=other_team)
+        # member sees the one project he is a member on
+        assert len(Project.objects.filter_for_team_and_user(user=self.member, team_slug=self.team.slug)) == 1
+        assert self.project in Project.objects.filter_for_team_and_user(user=self.member, team_slug=self.team.slug)
+        # admin sees all projects on his team but not the other_team_project
+        assert len(Project.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)) == 2
+        assert self.project in Project.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)
+        assert other_project in Project.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)
+        # nonmember sees no projects
+        assert len(Project.objects.filter_for_team_and_user(user=self.nonmember, team_slug=self.team.slug)) == 0
+
+
+class TestTicket(TestCase):
+    def setUp(self):
+        base = fac()
+        self.member = base['member']
+        self.nonmember = base['nonmember']
+        self.ticket = base['ticket']
+        self.team = base['team']
+        self.developer = base['developer']
+        self.admin = base['admin']
+        self.manager = base['manager']
+
+    def test_user_can_view_method(self):
+        assert self.ticket.can_user_view(self.member)
+        assert not self.ticket.can_user_view(self.nonmember)
+
+    def test_user_can_edit_method(self):
+        assert self.ticket.can_user_edit(self.developer)
+        assert self.ticket.can_user_edit(self.manager)
+        assert self.ticket.can_user_edit(self.admin)
+        assert not self.ticket.can_user_edit(self.member)
+
+    def test_filter_for_team_and_user_queryset(self):
+        other_project = Project.objects.create(title='title', description='desc', team=self.team)
+        # other_team = Team.objects.create(title='other', description='desc')
+        other_ticket = Ticket.objects.create(title='title', description='desc', project=other_project)
+        other_team_ticket = baker.make(Ticket)
+        # other_team_project = Project.objects.create(title='title', description='desc', team=other_team)
+        # member sees the one ticket on the project where he is a member
+        assert len(Ticket.objects.filter_for_team_and_user(user=self.member, team_slug=self.team.slug)) == 1
+        assert self.ticket in Ticket.objects.filter_for_team_and_user(user=self.member, team_slug=self.team.slug)
+        # admin sees all tickets on his team but not the other_team_ticket
+        assert len(Ticket.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)) == 2
+        assert self.ticket in Ticket.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)
+        assert other_ticket in Ticket.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)
+        assert other_team_ticket not in Ticket.objects.filter_for_team_and_user(user=self.admin, team_slug=self.team.slug)
+        assert isinstance(other_team_ticket, Ticket) # just making sure model_bakery worked
+        # nonmember sees no tickets
+        assert len(Ticket.objects.filter_for_team_and_user(user=self.nonmember, team_slug=self.team.slug)) == 0

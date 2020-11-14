@@ -15,6 +15,32 @@ from django_extensions.db.fields import CreationDateTimeField
 
 User = settings.AUTH_USER_MODEL
 
+# CUSTOM QUERYSETS
+
+class TeamQueryset(models.QuerySet):
+    def users_admin_teams(self, user):
+        return self.filter(memberships__role=TeamMembership.Roles.ADMIN, memberships__user=user).distinct()
+
+    def users_member_teams(self, user):
+        return self.filter(memberships__role=TeamMembership.Roles.MEMBER, memberships__user=user).distinct()
+
+
+class ProjectQueryset(models.QuerySet):
+    def filter_for_team_and_user(self, team_slug, user):
+        team = Team.objects.get(slug=team_slug)
+        if user in team.get_admins():
+            return self.filter(team__slug=team_slug).distinct()
+        return self.filter(members=user, team__slug=team_slug).distinct()
+
+
+class TicketQueryset(models.QuerySet):
+    def filter_for_team_and_user(self, team_slug, user):
+        team = Team.objects.get(slug=team_slug)
+        if user in team.get_admins():
+            return self.filter(project__team__slug=team_slug).distinct()
+        return self.filter(project__members=user, project__team__slug=team_slug).distinct()
+
+
 # TEAM AND RELATED THROUGH MODELS
 
 class Team(TitleSlugDescriptionModel, models.Model):
@@ -27,11 +53,16 @@ class Team(TitleSlugDescriptionModel, models.Model):
     created = CreationDateTimeField() # implements a creation timestamp
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the team's title
 
+    objects = models.Manager.from_queryset(TeamQueryset)()
+
     def __str__(self):
         return f'<Title: {self.title}, Slug: {self.slug}>'
 
     def get_admins(self):
-        return self.members.filter(team_memberships__role=2, team_memberships__team=self)
+        return self.members.filter(team_memberships__role=TeamMembership.Roles.ADMIN, team_memberships__team=self)
+
+    def get_non_admins(self):
+        return self.members.filter(team_memberships__role=TeamMembership.Roles.MEMBER, team_memberships__team=self)
 
     def make_admin(self, user):
         try:
@@ -86,6 +117,8 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the project's title
     # the `TimeStampedModel` implements created and modified fields
 
+    objects = models.Manager.from_queryset(ProjectQueryset)()
+
     def __str__(self):
         return f'<Title: {self.title}, Slug: {self.slug}>'
 
@@ -106,13 +139,18 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
             new_manager_membership.role = new_manager_membership.Roles.MANGER
             new_manager_membership.save()
             self.manager = new_manager_membership.user
-
             self.save()
         else:
             raise ValidationError(_('Cannot make manager. User is not a member of this project.'))
 
     def get_membership(self, user):
         return ProjectMembership.objects.get(user=user, project=self)
+
+    def can_user_view(self, user):
+        return user in self.members.all()
+
+    def can_user_edit(self, user):
+        return user == self.manager or user in self.team.get_admins()
 
 
 class ProjectMembership(TimeStampedModel, models.Model):
@@ -171,8 +209,16 @@ class Ticket(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the ticket's title
     # the `TimeStampedModel` implements created and modified fields
 
+    objects = models.Manager.from_queryset(TicketQueryset)()
+
     def __str__(self):
         return f'<Ticket: {self.title}, Slug: {self.slug}>'
+
+    def can_user_view(self, user):
+        return user in self.project.members.all()
+
+    def can_user_edit(self, user):
+        return user == self.developer or user == self.project.manager or user in self.project.team.get_admins()
 
 
 class TicketSubscription(TimeStampedModel, models.Model):
