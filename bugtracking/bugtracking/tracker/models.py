@@ -3,6 +3,8 @@
 # core django imports
 from django.db import models
 from django.conf import settings
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.utils.translation import gettext_lazy as _
 
 # third party imports
 from django_extensions.db.models import TitleSlugDescriptionModel, TimeStampedModel
@@ -28,20 +30,23 @@ class Team(TitleSlugDescriptionModel, models.Model):
     def __str__(self):
         return f'<Title: {self.title}, Slug: {self.slug}>'
 
-    def can_be_viewed_by_user(self, user):
-        return user in self.members
-
     def get_admins(self):
         return self.members.filter(team_memberships__role=2, team_memberships__team=self)
 
     def make_admin(self, user):
-        membership = self.memberships.get(user=user)
-        membership.role = membership.Roles.ADMIN
-        membership.save()
+        try:
+            membership = self.memberships.get(user=user)
+            membership.role = membership.Roles.ADMIN
+            membership.save()
+        except ObjectDoesNotExist:
+            raise ValidationError(_('Cannot make user an admin. User is not a member of your team.'))
 
     def add_member(self, user):
         membership = TeamMembership.objects.create(team=self, user=user, role=TeamMembership.Roles.MEMBER)
         membership.save()
+
+    def is_user_member(self, user):
+        return user in self.members.all()
 
 
 class TeamMembership(TimeStampedModel, models.Model):
@@ -77,6 +82,7 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     team = models.ForeignKey(Team, related_name='projects', on_delete=models.CASCADE)
     subscribers = models.ManyToManyField(User, related_name='project_subscriptions', through='ProjectSubscription')
     is_archived = models.BooleanField(default=False)
+    manager = models.ForeignKey(User, related_name='assigned_projects', on_delete=models.SET_NULL, null=True, blank=True)
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the project's title
     # the `TimeStampedModel` implements created and modified fields
 
@@ -84,13 +90,29 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         return f'<Title: {self.title}, Slug: {self.slug}>'
 
     def add_member(self, user):
-        membership = ProjectMembership.objects.create(project=self, user=user, role=ProjectMembership.Roles.DEVELOPER)
-        membership.save()
+        if user in self.team.members.all():
+            membership = ProjectMembership.objects.create(project=self, user=user, role=ProjectMembership.Roles.DEVELOPER)
+            membership.save()
+        else:
+            raise ValidationError(_('Cannot add user. User is not a member of this project\'s team.'))
 
     def make_manager(self, user):
-        membership = ProjectMembership.objects.get(user=user, project=self)
-        membership.role = membership.Roles.MANGER
-        membership.save()
+        if user in self.members.all():
+            if self.manager:
+                old_manager_membership = self.get_membership(self.manager)
+                old_manager_membership.role = old_manager_membership.Roles.DEVELOPER
+                old_manager_membership.save()
+            new_manager_membership = self.get_membership(user)
+            new_manager_membership.role = new_manager_membership.Roles.MANGER
+            new_manager_membership.save()
+            self.manager = new_manager_membership.user
+
+            self.save()
+        else:
+            raise ValidationError(_('Cannot make manager. User is not a member of this project.'))
+
+    def get_membership(self, user):
+        return ProjectMembership.objects.get(user=user, project=self)
 
 
 class ProjectMembership(TimeStampedModel, models.Model):
