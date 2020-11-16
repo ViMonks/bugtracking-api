@@ -22,6 +22,9 @@ from .factories import model_setup as fac
 def user(username='admin'):
     return User.objects.create_user(username=username, password='password')
 
+def create_team(user, title, description):
+    return Team.objects.create(title=title, description=description, creator=user)
+
 # TESTS
 
 class FactoryTest(TestCase):
@@ -81,8 +84,6 @@ class FactoryTest(TestCase):
         assert self.team.is_user_member(self.nonmember) == False
 
 
-# TODO: I think my old method of returning team owners and such returns all members who are MEMBERS of the team in question and OWNERS of ANY team; need to make sure new method doesn't do that
-
 class TestTeam(TestCase):
     def setUp(self) -> None:
         base = fac()
@@ -117,6 +118,16 @@ class TestTeam(TestCase):
         assert self.admin not in other_team.get_admins()
         assert other_admin not in self.team.get_admins()
 
+    def test_get_admins_returns_only_this_teams_admins_even_if_other_admins_are_members(self):
+        other_team = Team.objects.create(title='other', description='desc')
+        other_admin = User.objects.create_user(username='other', password='password')
+        other_team.add_member(other_admin)
+        other_team.make_admin(other_admin)
+        self.team.add_member(other_admin)
+        assert other_admin in other_team.get_admins()
+        assert self.admin not in other_team.get_admins()
+        assert other_admin not in self.team.get_admins()
+
     def test_get_non_admins(self):
         """Returns non-admins only."""
         assert self.team.get_non_admins().count() == 3
@@ -140,6 +151,39 @@ class TestTeam(TestCase):
         assert other_team not in Team.objects.users_member_teams(self.admin)
         assert len(Team.objects.users_member_teams(self.member)) == 1
         assert len(Team.objects.users_member_teams(self.nonmember)) == 0
+
+    def test_team_creation_with_string(self):
+        new_team = Team.objects.create_new(title='New', description='desc', creator='admin')
+        assert isinstance(new_team, Team)
+        assert self.admin in new_team.get_admins()
+        assert Team.objects.all().count() == 2
+
+    def test_team_creation_with_user_object(self):
+        new_team = Team.objects.create_new(title='New', description='desc', creator=self.admin)
+        assert isinstance(new_team, Team)
+        assert self.admin in new_team.get_admins()
+        assert Team.objects.all().count() == 2
+
+    def test_team_creation_with_invalid_username_raises_correct_error(self):
+        assert Team.objects.all().count() == 1
+        with pytest.raises(ObjectDoesNotExist) as error:
+            new_team = Team.objects.create_new(title='New', description='desc', creator='does_not_exist')
+        assert "does not exist" in str(error.value)
+        assert Team.objects.all().count() == 1
+
+    def test_team_creation_with_wrong_object_type_raises_correct_error(self):
+        assert Team.objects.all().count() == 1
+        with pytest.raises(ValidationError) as error:
+            new_team = Team.objects.create_new(title='New', description='desc', creator=1)
+        assert "<class 'int'>" in str(error.value)
+        assert Team.objects.all().count() == 1
+
+    def test_team_creation_with_no_creator_kwarg_raises_error(self):
+        assert Team.objects.all().count() == 1
+        with pytest.raises(ValidationError) as error:
+            new_team = Team.objects.create_new(title='New', description='desc')
+        assert "creator" in str(error.value)
+        assert Team.objects.all().count() == 1
 
 
 class TestProject(TestCase):

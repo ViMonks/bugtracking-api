@@ -3,6 +3,7 @@
 # core django imports
 from django.db import models
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
 
@@ -15,6 +16,28 @@ from django_extensions.db.fields import CreationDateTimeField
 
 User = settings.AUTH_USER_MODEL
 
+# CUSTOM MANGERS
+
+class TeamManager(models.Manager):
+    def create_new(self, *args, **kwargs):
+        if 'creator' in kwargs:
+            creator = kwargs.pop('creator')
+            if isinstance(creator, str):
+                try:
+                    creator = get_user_model().objects.get(username=creator)
+                except ObjectDoesNotExist:
+                    raise ObjectDoesNotExist(_("User by that username does not exist."))
+            elif isinstance(creator, get_user_model()):
+                pass
+            else:
+                raise ValidationError(_(f"Object of type {str(type(creator))} passed as `creator` argument. Accepted argument types are string (for username) or User object."))
+            team = super().create(*args, **kwargs)
+            membership = TeamMembership.objects.create(user=creator, team=team, role=TeamMembership.Roles.ADMIN)
+            membership.save()
+            return team
+        else:
+            raise ValidationError(_("The create_new() method must be passed a `creator`=User kwarg to assign an initial administrator."))
+
 # CUSTOM QUERYSETS
 
 class TeamQueryset(models.QuerySet):
@@ -23,6 +46,9 @@ class TeamQueryset(models.QuerySet):
 
     def users_member_teams(self, user):
         return self.filter(memberships__role=TeamMembership.Roles.MEMBER, memberships__user=user).distinct()
+
+    def all_users_teams(self, user):
+        return self.filter(memberships__user=user).distinct()
 
 
 class ProjectQueryset(models.QuerySet):
@@ -53,7 +79,7 @@ class Team(TitleSlugDescriptionModel, models.Model):
     created = CreationDateTimeField() # implements a creation timestamp
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the team's title
 
-    objects = models.Manager.from_queryset(TeamQueryset)()
+    objects = TeamManager.from_queryset(TeamQueryset)()
 
     def __str__(self):
         return f'<Title: {self.title}, Slug: {self.slug}>'
@@ -61,8 +87,22 @@ class Team(TitleSlugDescriptionModel, models.Model):
     def get_admins(self):
         return self.members.filter(team_memberships__role=TeamMembership.Roles.ADMIN, team_memberships__team=self)
 
+    @property
+    def admins(self):
+        admins_names = []
+        for name in self.get_admins():
+            admins_names.append(name.username)
+        return admins_names
+
     def get_non_admins(self):
         return self.members.filter(team_memberships__role=TeamMembership.Roles.MEMBER, team_memberships__team=self)
+
+    @property
+    def non_admins(self):
+        non_admins_names = []
+        for name in self.get_non_admins():
+            non_admins_names.append(name.username)
+        return non_admins_names
 
     def make_admin(self, user):
         try:
