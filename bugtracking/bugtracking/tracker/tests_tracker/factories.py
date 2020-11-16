@@ -16,7 +16,8 @@ def model_setup():
     developer = User.objects.create_user(username='developer', password='password')
     member = User.objects.create_user(username='member', password='password')
     nonmember = User.objects.create_user(username='nonmember', password='password')
-    team = models.Team.objects.create(title='team_title', description='team_desc')
+    # team = models.Team.objects.create(title='team_title', description='team_desc')
+    team = models.Team.objects.create_new(title='team_title', description='team_desc', creator=admin)
     all_members = [admin, manager, developer, member]
     project = models.Project.objects.create(team=team, title='project_title', description='project_desc')
     ticket = models.Ticket.objects.create(
@@ -25,7 +26,7 @@ def model_setup():
     for member in all_members:
         team.add_member(member)
         project.add_member(member)
-    team.make_admin(admin)
+    # team.make_admin(admin)
     project.make_manager(manager)
     results = {
         'admin': admin,

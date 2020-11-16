@@ -105,6 +105,8 @@ class Team(TitleSlugDescriptionModel, models.Model):
         return non_admins_names
 
     def make_admin(self, user):
+        if user in self.get_admins():
+            return
         try:
             membership = self.memberships.get(user=user)
             membership.role = membership.Roles.ADMIN
@@ -113,6 +115,8 @@ class Team(TitleSlugDescriptionModel, models.Model):
             raise ValidationError(_('Cannot make user an admin. User is not a member of your team.'))
 
     def add_member(self, user):
+        if user in self.members.all():
+            return
         membership = TeamMembership.objects.create(team=self, user=user, role=TeamMembership.Roles.MEMBER)
         membership.save()
 
@@ -163,6 +167,8 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         return f'<Title: {self.title}, Slug: {self.slug}>'
 
     def add_member(self, user):
+        if user in self.members.all():
+            return
         if user in self.team.members.all():
             membership = ProjectMembership.objects.create(project=self, user=user, role=ProjectMembership.Roles.DEVELOPER)
             membership.save()
@@ -170,6 +176,8 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
             raise ValidationError(_('Cannot add user. User is not a member of this project\'s team.'))
 
     def make_manager(self, user):
+        if user == self.manager:
+            return
         if user in self.members.all():
             if self.manager:
                 old_manager_membership = self.get_membership(self.manager)

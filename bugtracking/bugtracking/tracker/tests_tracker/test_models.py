@@ -84,6 +84,8 @@ class FactoryTest(TestCase):
         assert self.team.is_user_member(self.nonmember) == False
 
 
+
+
 class TestTeam(TestCase):
     def setUp(self) -> None:
         base = fac()
@@ -185,6 +187,11 @@ class TestTeam(TestCase):
         assert "creator" in str(error.value)
         assert Team.objects.all().count() == 1
 
+    def test_add_member_on_already_existing_member(self):
+        assert self.team.members.all().count() == 4
+        self.team.add_member(self.member)
+        assert self.team.members.all().count() == 4
+
 
 class TestProject(TestCase):
     def setUp(self) -> None:
@@ -195,6 +202,16 @@ class TestProject(TestCase):
         self.nonmember = base['nonmember']
         self.team = base['team']
         self.project = base['project']
+
+    def test_add_member_on_already_existing_member(self):
+        assert self.project.members.all().count() == 4
+        self.project.add_member(self.member)
+        assert self.project.members.all().count() == 4
+
+    def test_adding_manager_on_current_manager(self):
+        assert self.project.manager == self.manager
+        self.project.make_manager(self.manager)
+        assert self.project.manager == self.manager
 
     def test_add_member_fails_on_non_team_member(self):
         with pytest.raises(ValidationError) as error:
