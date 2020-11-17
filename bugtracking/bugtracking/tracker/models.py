@@ -22,21 +22,31 @@ class TeamManager(models.Manager):
     def create_new(self, *args, **kwargs):
         if 'creator' in kwargs:
             creator = kwargs.pop('creator')
-            if isinstance(creator, str):
-                try:
-                    creator = get_user_model().objects.get(username=creator)
-                except ObjectDoesNotExist:
-                    raise ObjectDoesNotExist(_("User by that username does not exist."))
-            elif isinstance(creator, get_user_model()):
-                pass
-            else:
-                raise ValidationError(_(f"Object of type {str(type(creator))} passed as `creator` argument. Accepted argument types are string (for username) or User object."))
+            if not isinstance(creator, get_user_model()):
+                raise ValidationError(_('Creator argument must be a User object. If you wish to pass a username string, use the create_new_by_username() method instead.'))
             team = super().create(*args, **kwargs)
             membership = TeamMembership.objects.create(user=creator, team=team, role=TeamMembership.Roles.ADMIN)
             membership.save()
             return team
         else:
             raise ValidationError(_("The create_new() method must be passed a `creator`=User kwarg to assign an initial administrator."))
+
+    def create_new_by_username(self, *args, **kwargs):
+        if 'creator' in kwargs:
+            creator = kwargs.pop('creator')
+            if not isinstance(creator, str):
+                raise ValidationError(_('Creator argument must be a string equal to a username. If you wish to pass a User object as the creator argument, use the create_new() model method instead.'))
+            try:
+                creator = get_user_model().objects.get(username=creator)
+            except ObjectDoesNotExist:
+                raise ObjectDoesNotExist(_("User by that username does not exist."))
+            team = super().create(*args, **kwargs)
+            membership = TeamMembership.objects.create(user=creator, team=team, role=TeamMembership.Roles.ADMIN)
+            membership.save()
+            return team
+        else:
+            raise ValidationError(_("The create_new_by_username() method must be passed a `creator`=User kwarg to assign an initial administrator."))
+
 
 # CUSTOM QUERYSETS
 
@@ -141,6 +151,10 @@ class TeamMembership(TimeStampedModel, models.Model):
 
     def __str__(self):
         return f'<Team Membership: {self.user}, {self.team.slug}>'
+
+    @property
+    def role_name(self):
+        return self.get_role_display()
 
 
 # TODO: implement a TeamInvitation model to handle team invites

@@ -1,2 +1,5 @@
 To run pytest tests: docker-compose -f local.yml run --rm django pytest
 These are not covered in the Django test run configuration.
+
+To run shell or shell_plus, in terminal:
+docker-compose -f local.yml run django python manage.py shell

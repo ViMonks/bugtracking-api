@@ -154,36 +154,63 @@ class TestTeam(TestCase):
         assert len(Team.objects.users_member_teams(self.member)) == 1
         assert len(Team.objects.users_member_teams(self.nonmember)) == 0
 
-    def test_team_creation_with_string(self):
-        new_team = Team.objects.create_new(title='New', description='desc', creator='admin')
+    def test_team_creation_with_create_new_by_username(self):
+        new_team = Team.objects.create_new_by_username(title='New', description='desc', creator='admin')
         assert isinstance(new_team, Team)
         assert self.admin in new_team.get_admins()
         assert Team.objects.all().count() == 2
 
-    def test_team_creation_with_user_object(self):
+    def test_team_creation_with_create_new_by_username_using_user_object(self):
+        """Should fail. This method only accepts username strings."""
+        with pytest.raises(ValidationError) as error:
+            new_team = Team.objects.create_new_by_username(title='New', description='desc', creator=self.admin)
+        assert Team.objects.all().count() == 1
+        assert "must be a string" in str(error.value)
+
+    def test_team_creation_with_create_new(self):
         new_team = Team.objects.create_new(title='New', description='desc', creator=self.admin)
         assert isinstance(new_team, Team)
         assert self.admin in new_team.get_admins()
         assert Team.objects.all().count() == 2
 
+    def test_team_creation_with_create_new_using_string(self):
+        with pytest.raises(ValidationError) as error:
+            new_team = Team.objects.create_new(title='New', description='desc', creator='admin')
+        assert Team.objects.all().count() == 1
+        assert "must be a User object" in str(error.value)
+
     def test_team_creation_with_invalid_username_raises_correct_error(self):
         assert Team.objects.all().count() == 1
         with pytest.raises(ObjectDoesNotExist) as error:
-            new_team = Team.objects.create_new(title='New', description='desc', creator='does_not_exist')
+            new_team = Team.objects.create_new_by_username(title='New', description='desc', creator='does_not_exist')
         assert "does not exist" in str(error.value)
         assert Team.objects.all().count() == 1
 
-    def test_team_creation_with_wrong_object_type_raises_correct_error(self):
+    def test_create_new_with_wrong_object_type_raises_correct_error(self):
         assert Team.objects.all().count() == 1
         with pytest.raises(ValidationError) as error:
             new_team = Team.objects.create_new(title='New', description='desc', creator=1)
-        assert "<class 'int'>" in str(error.value)
+        assert "must be a User object" in str(error.value)
         assert Team.objects.all().count() == 1
 
-    def test_team_creation_with_no_creator_kwarg_raises_error(self):
+    def test_create_new_by_username_with_wrong_object_type_raises_correct_error(self):
+        assert Team.objects.all().count() == 1
+        with pytest.raises(ValidationError) as error:
+            new_team = Team.objects.create_new_by_username(title='New', description='desc', creator=1)
+        assert "must be a string" in str(error.value)
+        assert Team.objects.all().count() == 1
+
+    def test_create_new_with_no_creator_kwarg_raises_error(self):
         assert Team.objects.all().count() == 1
         with pytest.raises(ValidationError) as error:
             new_team = Team.objects.create_new(title='New', description='desc')
+        assert "creator" in str(error.value)
+        assert Team.objects.all().count() == 1
+
+    def test_create_new_by_username_with_no_creator_kwarg_raises_error(self):
+        assert Team.objects.all().count() == 1
+        with pytest.raises(ValidationError) as error:
+            new_team = Team.objects.create_new_by_username(title='New', description='desc')
         assert "creator" in str(error.value)
         assert Team.objects.all().count() == 1
 

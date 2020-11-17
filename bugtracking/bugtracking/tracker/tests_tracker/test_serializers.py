@@ -15,7 +15,7 @@ from bugtracking.users.models import User
 from bugtracking.tracker.models import (
     Team, TeamMembership, Project, ProjectMembership, Ticket, Comment
 )
-from bugtracking.tracker.api.serializers import TeamSerializer
+from bugtracking.tracker.api.serializers import TeamCreateRetrieveSerializer
 from .factories import model_setup as fac
 
 
