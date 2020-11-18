@@ -22,3 +22,17 @@ class TeamPermissions(BasePermission):
         elif request.method == 'DELETE':
             return False
         return request.user in obj.get_admins()
+
+
+class ProjectPermissions(BasePermission):
+    """
+    All project members can view a project.
+    A project's manager and that project's teams' admins can edit a project.
+    A team admin can create a project.
+    """
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return obj.can_user_view(request.user)
+        elif request.method == 'CREATE':
+            return request.user in obj.team.get_admins()
+        return obj.can_user_edit(request.user)

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
+from django.urls import reverse
 
 # third party imports
 from django_extensions.db.models import TitleSlugDescriptionModel, TimeStampedModel
@@ -46,6 +47,19 @@ class TeamManager(models.Manager):
             return team
         else:
             raise ValidationError(_("The create_new_by_username() method must be passed a `creator`=User kwarg to assign an initial administrator."))
+
+
+class ProjectManager(models.Manager):
+    def create_new(self, *args, **kwargs):
+        if 'manager' in kwargs and kwargs['manager'] is not None:
+            manager = kwargs['manager']
+            if not isinstance(manager, get_user_model()):
+                raise ValidationError(_('Manager argument must be a User object.'))
+            project = super().create(*args, **kwargs)
+            membership = ProjectMembership.objects.create(user=manager, project=project, role=ProjectMembership.Roles.MANGER)
+            membership.save()
+            return project
+        return super().create(*args, **kwargs)
 
 
 # CUSTOM QUERYSETS
@@ -114,6 +128,13 @@ class Team(TitleSlugDescriptionModel, models.Model):
             non_admins_names.append(name.username)
         return non_admins_names
 
+    @property # currently unused
+    def projects_url(self):
+        from django.contrib.sites.models import Site
+        domain = Site.objects.get_current().domain
+        path = reverse('api:projects-list', kwargs={'team_slug': self.slug})
+        return f'https://{domain}{path}'
+
     def make_admin(self, user):
         if user in self.get_admins():
             return
@@ -175,7 +196,7 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the project's title
     # the `TimeStampedModel` implements created and modified fields
 
-    objects = models.Manager.from_queryset(ProjectQueryset)()
+    objects = ProjectManager.from_queryset(ProjectQueryset)()
 
     def __str__(self):
         return f'<Title: {self.title}, Slug: {self.slug}>'
@@ -209,7 +230,7 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         return ProjectMembership.objects.get(user=user, project=self)
 
     def can_user_view(self, user):
-        return user in self.members.all()
+        return user in self.members.all() or user in self.team.get_admins()
 
     def can_user_edit(self, user):
         return user == self.manager or user in self.team.get_admins()
@@ -232,6 +253,10 @@ class ProjectMembership(TimeStampedModel, models.Model):
 
     def __str__(self):
         return f'<Project Membership: {self.user}, {self.project.slug}>'
+
+    @property
+    def role_name(self):
+        return self.get_role_display()
 
 
 class ProjectSubscription(TimeStampedModel, models.Model):

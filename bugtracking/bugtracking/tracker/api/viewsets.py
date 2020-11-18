@@ -8,7 +8,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
 # my internal imports
-from ..models import Team, TeamMembership
+from ..models import Team, TeamMembership, Project
 from . import serializers
 from . import permissions
 
@@ -39,9 +39,33 @@ class TeamViewSet(viewsets.ModelViewSet):
 
 class TeamMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TeamMembershipSerializer
-    permission_classes = [IsAuthenticated]
-    # TODO: adjust permission classes
+    # permission_classes = [IsAuthenticated]
+    # TODO: adjust permission classes; or maybe doesn't matter; don't think I'll have this viewset publicly exposed; by default, it's admin only
 
     def get_queryset(self):
         user = self.request.user
         return TeamMembership.objects.filter(user=user)
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    serializer_class = serializers.ProjectSerializer
+    permission_classes = [IsAuthenticated, permissions.ProjectPermissions]
+    lookup_field = 'slug'
+
+    def get_queryset(self):
+        user = self.request.user
+        team_slug = self.kwargs['team_slug']
+        return Project.objects.filter_for_team_and_user(team_slug=team_slug, user=user)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        team_slug = self.kwargs['team_slug']
+        team = Team.objects.get(slug=team_slug)
+        context['team'] = team
+        # context['request'] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        team_slug = self.kwargs['team_slug']
+        team = Team.objects.get(slug=team_slug)
+        serializer.save(team=team)
