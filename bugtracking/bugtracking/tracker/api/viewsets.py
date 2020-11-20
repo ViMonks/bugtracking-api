@@ -68,4 +68,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         team_slug = self.kwargs['team_slug']
         team = Team.objects.get(slug=team_slug)
+        manager_username = self.kwargs.get('manager', None)
+        if manager_username is not None:
+            manager = User.objects.get(username=manager_username)
+            serializer.save(team=team, manager=manager)
         serializer.save(team=team)

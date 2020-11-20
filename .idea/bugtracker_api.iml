@@ -19,7 +19,13 @@
     <orderEntry type="jdk" jdkName="Remote Python 3.8.6 Docker Compose (django at [C:\Users\thurm\Documents\my_apps\bugtracker_api\bugtracking\local.yml])" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
+  <component name="PackageRequirementsSettings">
+    <option name="requirementsPath" value="" />
+  </component>
   <component name="TemplatesService">
     <option name="TEMPLATE_CONFIGURATION" value="Django" />
+  </component>
+  <component name="TestRunnerService">
+    <option name="PROJECT_TEST_RUNNER" value="pytest" />
   </component>
 </module>
