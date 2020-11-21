@@ -56,7 +56,7 @@ class ProjectManager(models.Manager):
             if not isinstance(manager, get_user_model()):
                 raise ValidationError(_('Manager argument must be a User object.'))
             project = super().create(*args, **kwargs)
-            membership = ProjectMembership.objects.create(user=manager, project=project, role=ProjectMembership.Roles.MANGER)
+            membership = ProjectMembership.objects.create(user=manager, project=project, role=ProjectMembership.Roles.MANAGER)
             membership.save()
             return project
         return super().create(*args, **kwargs)
@@ -219,7 +219,7 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
                 old_manager_membership.role = old_manager_membership.Roles.DEVELOPER
                 old_manager_membership.save()
             new_manager_membership = self.get_membership(user)
-            new_manager_membership.role = new_manager_membership.Roles.MANGER
+            new_manager_membership.role = new_manager_membership.Roles.MANAGER
             new_manager_membership.save()
             self.manager = new_manager_membership.user
             self.save()
@@ -242,7 +242,7 @@ class ProjectMembership(TimeStampedModel, models.Model):
     """
     class Roles(models.IntegerChoices):
         DEVELOPER = 1, 'Developer'
-        MANGER = 2, 'Manager'
+        MANAGER = 2, 'Manager'
 
     role = models.IntegerField(choices=Roles.choices, default=Roles.DEVELOPER)
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='memberships')

@@ -67,7 +67,7 @@ class FactoryTest(TestCase):
         assert User.objects.all().count() == 5
 
     def test_project_manager_assigned(self):
-        assert ProjectMembership.objects.get(user=self.manager, project=self.project).role == ProjectMembership.Roles.MANGER
+        assert ProjectMembership.objects.get(user=self.manager, project=self.project).role == ProjectMembership.Roles.MANAGER
         assert self.manager == self.project.manager
 
     def test_project_has_four_members(self):
@@ -261,10 +261,10 @@ class TestProject(TestCase):
         Assigning a new manager should change the old manager's ProjectMembership.role back to developer
         and switch the new manager's role to manager.
         """
-        assert self.project.get_membership(self.manager).role == ProjectMembership.Roles.MANGER
+        assert self.project.get_membership(self.manager).role == ProjectMembership.Roles.MANAGER
         self.project.make_manager(self.member)
         assert self.project.get_membership(self.manager).role == ProjectMembership.Roles.DEVELOPER
-        assert self.project.get_membership(self.member).role == ProjectMembership.Roles.MANGER
+        assert self.project.get_membership(self.member).role == ProjectMembership.Roles.MANAGER
 
     def test_can_user_view_method(self):
         assert self.project.can_user_view(self.member)

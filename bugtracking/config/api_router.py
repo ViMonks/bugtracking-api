@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter, SimpleRouter
 from rest_framework_nested.routers import NestedSimpleRouter
 
 from bugtracking.users.api.views import UserViewSet
-from bugtracking.tracker.api.viewsets import TeamViewSet, TeamMembershipViewSet, ProjectViewSet
+from bugtracking.tracker.api.viewsets import TeamViewSet, TeamMembershipViewSet, ProjectViewSet, TicketViewSet
 
 if settings.DEBUG:
     router = DefaultRouter()
@@ -18,6 +18,8 @@ router.register(r'teams', TeamViewSet, basename='teams')
 
 team_router = NestedSimpleRouter(router, r'teams', lookup='team')
 team_router.register(r'projects', ProjectViewSet, basename='projects')
+project_router = NestedSimpleRouter(team_router, r'projects', lookup='project')
+project_router.register(r'tickets', TicketViewSet, basename='tickets')
 
 
 app_name = "api"
@@ -26,5 +28,6 @@ app_name = "api"
 urlpatterns = [
 
     path(r'', include(router.urls)),
-    path(r'', include(team_router.urls))
+    path(r'', include(team_router.urls)),
+    path(r'', include(project_router.urls))
 ]

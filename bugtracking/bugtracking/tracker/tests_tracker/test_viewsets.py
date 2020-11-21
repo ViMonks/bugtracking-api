@@ -36,7 +36,7 @@ class TestTeamViewSet(APITestCase):
         self.post_data = {'title': 'new team', 'description': 'description'}
         # put_data includes all fields, but only description should be editable
         self.put_data = {
-            "title": "new updated title",
+            #"title": "new updated title",
             "slug": "new-updated-title",
             "description": "updated desc",
             "memberships": [
@@ -140,14 +140,16 @@ class TestTeamViewSet(APITestCase):
 
     def test_put_admin(self):
         """Can put."""
+        old_title = self.team.title
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
         self.client.force_login(self.admin)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
         self.team.refresh_from_db()
         # only description should have updated
+        assert self.team.title == old_title
         assert self.team.description == self.put_data['description']
-        assert not self.team.title == self.put_data['title']
+        assert not self.team.title == "new updated title"
         assert Team.objects.all().count() == 1
 
     def test_put_member(self):
@@ -159,7 +161,7 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         # nothing should have updated
         assert not self.team.description == self.put_data['description']
-        assert not self.team.title == self.put_data['title']
+        assert not self.team.title == "new updated title"
 
     def test_put_nonmember(self):
         """Cannot put."""
@@ -170,7 +172,7 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         # nothing should have updated
         assert not self.team.description == self.put_data['description']
-        assert not self.team.title == self.put_data['title']
+        assert not self.team.title == "new updated title"
 
     def test_patch_admin(self):
         """Can patch."""
@@ -181,7 +183,7 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         # only description should have updated
         assert self.team.description == 'patch desc'
-        assert not self.team.title == self.put_data['title']
+        assert not self.team.title == "new updated title"
         assert Team.objects.all().count() == 1
 
     def test_patch_member(self):
@@ -193,7 +195,7 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         # nothing should have updated
         assert not self.team.description == 'patch desc'
-        assert not self.team.title == self.put_data['title']
+        assert not self.team.title == "new updated title"
 
     def test_patch_nonmember(self):
         """Cannot patch."""
@@ -204,7 +206,7 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         # nothing should have updated
         assert not self.team.description == 'patch desc'
-        assert not self.team.title == self.put_data['title']
+        assert not self.team.title == "new updated title"
 
     def test_delete(self):
         """Teams cannot be deleted."""
@@ -229,13 +231,12 @@ class TestProjectViewSet(APITestCase):
         self.team.add_member(self.team_member)
         self.post_data = {'title': 'new project', 'description': 'description'}
         self.put_data = {
-            "title": "put title",
+            "title": "Updated Title",
             "slug": "new-project",
-            "description": "put description",
-            "manager": "monks",
+            "is_archived": "true",
+            "description": "Updated description",
             "created": "2020-11-20T15:50:50.730158-05:00",
             "modified": "2020-11-20T16:23:02.069394-05:00",
-            "url": "http://localhost:8000/api/teams/monks-test-team/projects/new-project/"
         }
 
     def test_list_admin(self):
@@ -380,12 +381,29 @@ class TestProjectViewSet(APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
 
-    # def test_put_admin(self):
-    #     """Can put."""
-    #     url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-    #     self.client.force_login(self.admin, self.put_data)
-    #     response = self.client.put(url)
-    #     assert response.status_code == status.HTTP_200_OK
+    def test_put_admin(self):
+        """Can put."""
+        assert self.project.is_archived == False
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_login(self.admin)
+        response = self.client.put(url, self.put_data)
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.project.title == 'Updated Title'
+        assert self.project.description == 'Updated description'
+        assert self.project.is_archived == True
+
+    def test_put_manager(self):
+        """Can put."""
+        assert self.project.is_archived == False
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_login(self.manager)
+        response = self.client.put(url, self.put_data)
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.project.title == 'Updated Title'
+        assert self.project.description == 'Updated description'
+        assert self.project.is_archived == True
 
     def test_put_member(self):
         """Cannot put."""
@@ -519,3 +537,80 @@ class TestProjectViewSet(APITestCase):
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
+
+    def test_patching_new_manager_as_admin(self):
+        """Can change manager. Only team admins can."""
+        assert self.project.manager == self.manager
+        old_manager_membership = ProjectMembership.objects.get(user=self.manager, project=self.project)
+        assert old_manager_membership.role == ProjectMembership.Roles.MANAGER
+        new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
+        assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_login(self.admin)
+        response = self.client.patch(url, {"manager": "member"})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.project.manager == self.member
+        old_manager_membership.refresh_from_db()
+        assert old_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+        new_manager_membership.refresh_from_db()
+        assert new_manager_membership.role == ProjectMembership.Roles.MANAGER
+
+    def test_putting_new_manager_as_admin(self):
+        """Can change manager. Only team admins can."""
+        assert self.project.manager == self.manager
+        old_manager_membership = ProjectMembership.objects.get(user=self.manager, project=self.project)
+        assert old_manager_membership.role == ProjectMembership.Roles.MANAGER
+        new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
+        assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_login(self.admin)
+        self.put_data['manager'] = "member"
+        response = self.client.put(url, self.put_data)
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.project.manager == self.member
+        old_manager_membership.refresh_from_db()
+        assert old_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+        new_manager_membership.refresh_from_db()
+        assert new_manager_membership.role == ProjectMembership.Roles.MANAGER
+
+    def test_patching_new_manager_as_manager(self):
+        """Cannot change manager. Only team admins can"""
+        assert self.project.manager == self.manager
+        old_manager_membership = ProjectMembership.objects.get(user=self.manager, project=self.project)
+        assert old_manager_membership.role == ProjectMembership.Roles.MANAGER
+        new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
+        assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_login(self.manager)
+        self.put_data['manager'] = "member"
+        response = self.client.patch(url, {"manager": "member"})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert 'Only a team admin' in response.data['errors']
+        self.project.refresh_from_db()
+        assert self.project.manager == self.manager
+        old_manager_membership.refresh_from_db()
+        assert old_manager_membership.role == ProjectMembership.Roles.MANAGER
+        new_manager_membership.refresh_from_db()
+        assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+
+    def test_putting_new_manager_as_manager(self):
+        """Cannot change manager. Only team admins can"""
+        assert self.project.manager == self.manager
+        old_manager_membership = ProjectMembership.objects.get(user=self.manager, project=self.project)
+        assert old_manager_membership.role == ProjectMembership.Roles.MANAGER
+        new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
+        assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_login(self.manager)
+        self.put_data['manager'] = "member"
+        response = self.client.put(url, self.put_data)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert 'Only a team admin' in response.data['errors']
+        self.project.refresh_from_db()
+        assert self.project.manager == self.manager
+        old_manager_membership.refresh_from_db()
+        assert old_manager_membership.role == ProjectMembership.Roles.MANAGER
+        new_manager_membership.refresh_from_db()
+        assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER

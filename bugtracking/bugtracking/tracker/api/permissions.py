@@ -14,10 +14,16 @@ class TeamPermissions(BasePermission):
     Team members can view a team.
     Team admins can update teams.
     """
+    message = {'errors': 'Permission denied.'} # this is just a fallback; message will be customized in permission checks
+
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
             return request.user in obj.members.all()
         elif request.method == 'DELETE':
+            self.message['errors'] = 'Teams cannot be deleted.'
+            return False
+        if 'title' in request.data:
+            self.message['errors'] = 'Team titles cannot be changed after creation.'
             return False
         return request.user in obj.get_admins()
 
@@ -28,10 +34,16 @@ class ProjectPermissions(BasePermission):
     A project's manager and that project's teams' admins can edit a project.
     A team admin can create a project.
     """
+    message = {'errors': 'Permission denied.'} # this is just a fallback; message will be customized in permission checks
+
     def has_permission(self, request, view):
         team = Team.objects.get(slug=view.kwargs['team_slug'])
         if request.method == 'POST':
-            return request.user in team.get_admins()
+            if request.user in team.get_admins():
+                return True
+            else:
+                self.message['errors'] = "Only a team admin may post a new project."
+                return False
         return request.user in team.members.all()
 
     def has_object_permission(self, request, view, obj):
@@ -39,4 +51,7 @@ class ProjectPermissions(BasePermission):
             return obj.can_user_view(request.user)
         elif request.method == 'CREATE':
             return request.user in obj.team.get_admins()
+        if 'manager' in request.data and request.user not in obj.team.get_admins():
+            self.message['errors'] = "Only a team admin may change the manager of a project."
+            return False
         return obj.can_user_edit(request.user)

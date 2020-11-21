@@ -47,9 +47,9 @@ class TeamCreateRetrieveSerializer(serializers.ModelSerializer):
 
 
 class TeamUpdateSerializer(TeamCreateRetrieveSerializer):
-
+    """Adds title to the read_only_fields Meta attribute."""
     class Meta(TeamCreateRetrieveSerializer.Meta):
-        read_only_fields = ['slug', 'created', 'memberships', 'title',]
+        read_only_fields = ['slug', 'created', 'memberships', 'title', 'url', 'projects_list', ]
 
     def update(self, instance, validated_data):
         if 'title' in validated_data:
@@ -82,23 +82,56 @@ class ManagerSlugField(serializers.SlugRelatedField):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    """The ForAdmins serializer allows editing of the manager field. Other users' serializers do not.
+    Serializer class is determined in the viewset."""
     memberships = ProjectMembershipSerializer(read_only=True, many=True)
     team = serializers.SlugRelatedField(slug_field='slug', read_only=True)
     manager = ManagerSlugField(slug_field='username', required=False, allow_null=True)
     url = serializers.SerializerMethodField()
+    tickets_list = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
-        fields = ['title', 'slug', 'description', 'team', 'is_archived', 'manager', 'memberships', 'created', 'modified', 'url']
-        read_only_fields = ['slug', 'created', 'modified', 'team', 'memberships', 'url']
+        fields = ['title', 'slug', 'description', 'team', 'is_archived', 'manager', 'memberships', 'created', 'modified', 'url', 'tickets_list']
+        read_only_fields = ['slug', 'created', 'modified', 'team', 'memberships', 'url', 'tickets_list']
 
     def get_url(self, project):
-        request = self.context.get('request')
+        request = self.context.get('request', None)
         path = reverse_lazy('api:projects-detail', kwargs={'team_slug': project.team.slug, 'slug': project.slug})
         if request:
             url = request.build_absolute_uri(str(path)) # passing string path because reverse_lazy returns a proxy object
             return url
         return path
 
+    def get_tickets_list(self, project):
+        path = reverse('api:tickets-list', kwargs={'team_slug': project.team.slug, 'project_slug': project.slug})
+        request = self.context.get('request')
+        return request.build_absolute_uri(path)
+
     def create(self, validated_data):
         return Project.objects.create_new(**validated_data)
+
+    def update(self, instance, validated_data):
+        if 'manager' in validated_data:
+            manager = validated_data.pop('manager')
+            instance.make_manager(manager)
+        return super().update(instance, validated_data)
+
+
+class TicketSerializer(serializers.ModelSerializer):
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Ticket
+        fields = ['title', 'slug', 'description', 'priority', 'user', 'project', 'resolution', 'developer', 'is_open', 'created', 'modified', 'url',]
+        read_only_fields = ['slug', 'user', 'project', 'created', 'modified', 'url',]
+
+    def get_url(self, ticket): # speculative so far; don't know how the nested routers will work
+        request = self.context.get('request', None)
+        path = reverse_lazy('api:tickets-detail', kwargs={
+            'team_slug': ticket.project.team.slug, 'project_slug': ticket.project.slug, 'slug': ticket.slug
+        })
+        if request:
+            url = request.build_absolute_uri(str(path))
+            return url
+        return path

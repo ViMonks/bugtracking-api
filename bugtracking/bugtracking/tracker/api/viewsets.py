@@ -8,7 +8,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
 # my internal imports
-from ..models import Team, TeamMembership, Project
+from ..models import Team, TeamMembership, Project, Ticket
 from . import serializers
 from . import permissions
 
@@ -26,6 +26,15 @@ class TeamViewSet(viewsets.ModelViewSet):
         return Team.objects.all_users_teams(user)
 
     def get_serializer_class(self):
+        """
+        The two serializers referenced in this method differ only in that TeamUpdateSerializer sets 'title' as a
+        read-only field. This is done so that 'title' is editable and required when creating a new team,
+        but is then uneditable when editing an existing team. This functionality is somewhat duplicated
+        (but not completely, hence why I need this method) by the TeamPermissions class. TeamPermissions
+        returns 403 Permission Denied if 'title' is in the request's update data. However, if I try to just rely
+        on that and get the serializer where 'title' is editable and required, any PUT request fails with a
+        400 Bad Request because 'title' is required.
+        """
         if self.request.method in ['POST', 'GET']:
             serializer_class = serializers.TeamCreateRetrieveSerializer
         else:
@@ -73,3 +82,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
             manager = User.objects.get(username=manager_username)
             serializer.save(team=team, manager=manager)
         serializer.save(team=team)
+
+
+class TicketViewSet(viewsets.ModelViewSet):
+    serializer_class = serializers.TicketSerializer
+    permission_classes = [IsAuthenticated] # TODO: update
+    lookup_field = 'slug'
+
+    def get_queryset(self):
+        user = self.request.user
+        team_slug = self.kwargs['team_slug']
+        return Ticket.objects.filter_for_team_and_user(user=user, team_slug=team_slug)
