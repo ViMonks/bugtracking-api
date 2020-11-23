@@ -86,7 +86,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TicketSerializer
-    permission_classes = [IsAuthenticated] # TODO: update
+    permission_classes = [IsAuthenticated, permissions.TicketPermissions]
     lookup_field = 'slug'
 
     def get_queryset(self):

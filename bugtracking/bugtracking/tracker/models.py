@@ -235,6 +235,9 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     def can_user_edit(self, user):
         return user == self.manager or user in self.team.get_admins()
 
+    def can_user_update_manager(self, user):
+        return user in self.team.get_admins()
+
 
 class ProjectMembership(TimeStampedModel, models.Model):
     """
@@ -302,10 +305,13 @@ class Ticket(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         return f'<Ticket: {self.title}, Slug: {self.slug}>'
 
     def can_user_view(self, user):
-        return user in self.project.members.all()
+        return user in self.project.members.all() or user in self.project.team.get_admins() or user == self.user
 
     def can_user_edit(self, user):
-        return user == self.developer or user == self.project.manager or user in self.project.team.get_admins()
+        return user == self.developer or user == self.project.manager or user in self.project.team.get_admins() or user == self.user
+
+    def can_user_change_developer(self, user):
+        return user in self.project.team.get_admins() or user == self.project.manager
 
 
 class TicketSubscription(TimeStampedModel, models.Model):

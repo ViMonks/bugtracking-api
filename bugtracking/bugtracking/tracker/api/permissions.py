@@ -6,13 +6,13 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 # my internal imports
-from ..models import Team
+from ..models import Team, Project
 
 class TeamPermissions(BasePermission):
     """
-    All authenticated users can create a team.
-    Team members can view a team.
-    Team admins can update teams.
+    View permissions: Team members can view a team.
+    Edit permissions: Team admins can update teams.
+    Create permissions: All authenticated users can create a team.
     """
     message = {'errors': 'Permission denied.'} # this is just a fallback; message will be customized in permission checks
 
@@ -30,9 +30,10 @@ class TeamPermissions(BasePermission):
 
 class ProjectPermissions(BasePermission):
     """
-    All project members can view a project.
-    A project's manager and that project's teams' admins can edit a project.
-    A team admin can create a project.
+    View permissions: All project members can view a project.
+    Edit permissions: project's manager and that project's teams' admins.
+    Only team admins may change the project's manager.
+    Create permissions: A team admin can create a project.
     """
     message = {'errors': 'Permission denied.'} # this is just a fallback; message will be customized in permission checks
 
@@ -51,7 +52,39 @@ class ProjectPermissions(BasePermission):
             return obj.can_user_view(request.user)
         elif request.method == 'CREATE':
             return request.user in obj.team.get_admins()
-        if 'manager' in request.data and request.user not in obj.team.get_admins():
+        if 'manager' in request.data and not obj.can_user_update_manager(request.user):
             self.message['errors'] = "Only a team admin may change the manager of a project."
             return False
+        return obj.can_user_edit(request.user)
+
+
+class TicketPermissions(BasePermission):
+    """
+    View permissions: All project members can view all tickets; team admin can view all tickets.
+    Edit permissions: Team admins, project manager, ticket's assigned developer, ticket's creator.
+    Only team admins and project managers may update a ticket's assigned developer.
+    Create permissions: All project members.
+    """
+    message = {'errors': 'Permission denied.'}
+
+    def has_permission(self, request, view):
+        team = Team.objects.get(slug=view.kwargs['team_slug'])
+        project = Project.objects.get(slug=view.kwargs['project_slug'])
+        if request.method == 'POST':
+            if request.user in project.members.all():
+                return True
+            else:
+                self.message['errors'] = "Only project members may submit tickets to a project."
+                return False
+        return request.user in project.members.all() or request.user in team.get_admins()
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return obj.can_user_view(request.user)
+        if 'developer' in request.data:
+            if not obj.can_user_change_developer(request.user):
+                self.message['errors'] = "Only team admins and project managers may change a ticket's assigned developer."
+                return False
+            else:
+                return True
         return obj.can_user_edit(request.user)
