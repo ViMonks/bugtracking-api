@@ -71,7 +71,7 @@ class TicketPermissions(BasePermission):
         team = Team.objects.get(slug=view.kwargs['team_slug'])
         project = Project.objects.get(slug=view.kwargs['project_slug'])
         if request.method == 'POST':
-            if request.user in project.members.all():
+            if project.can_user_create_tickets(request.user):
                 return True
             else:
                 self.message['errors'] = "Only project members may submit tickets to a project."
@@ -87,4 +87,6 @@ class TicketPermissions(BasePermission):
                 return False
             else:
                 return True
+        if request.method == 'DELETE':
+            return obj.can_user_delete(request.user)
         return obj.can_user_edit(request.user)

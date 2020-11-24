@@ -118,8 +118,22 @@ class ProjectSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class DeveloperSlugField(serializers.SlugRelatedField):
+    def get_queryset(self):
+        if self.parent.instance: # meaning we're in detail view
+            # return the project's members
+            return self.parent.instance.project.members.all()
+        elif (project := self.context['project']): # in list view
+            # also return project members
+            return project.members.all()
+        else:
+            # if there is no team in the context, then the serializer has been called in a weird way; return all users, validate in the model
+            return User.objects.all()
+
+
 class TicketSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
+    developer = DeveloperSlugField(slug_field='username', required=False, allow_null=True)
 
     class Meta:
         model = Ticket
@@ -135,3 +149,6 @@ class TicketSerializer(serializers.ModelSerializer):
             url = request.build_absolute_uri(str(path))
             return url
         return path
+
+    def create(self, validated_data):
+        return Ticket.objects.create_new(**validated_data)

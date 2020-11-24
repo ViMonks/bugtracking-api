@@ -92,4 +92,29 @@ class TicketViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         team_slug = self.kwargs['team_slug']
-        return Ticket.objects.filter_for_team_and_user(user=user, team_slug=team_slug)
+        team = Team.objects.get(slug=team_slug)
+        project_slug = self.kwargs['project_slug']
+        project = Project.objects.get(slug=project_slug, team=team)
+        return project.tickets.filter_for_team_and_user(user=user, team_slug=team_slug)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        team_slug = self.kwargs['team_slug']
+        team = Team.objects.get(slug=team_slug)
+        context['team'] = team
+        project_slug = self.kwargs['project_slug']
+        project = Project.objects.get(slug=project_slug, team=team)
+        context['project'] = project
+        context['user'] = self.request.user
+        return context
+
+    def perform_create(self, serializer):
+        team_slug = self.kwargs['team_slug']
+        team = Team.objects.get(slug=team_slug)
+        project_slug = self.kwargs['project_slug']
+        project = Project.objects.get(slug=project_slug, team=team)
+        developer_username = self.kwargs.get('developer', None)
+        if developer_username is not None:
+            developer = User.objects.get(username=developer_username)
+            serializer.save(project=project, user=self.request.user, developer=developer)
+        serializer.save(project=project, user=self.request.user)

@@ -4,7 +4,7 @@
 from django.db import models
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 
@@ -60,6 +60,32 @@ class ProjectManager(models.Manager):
             membership.save()
             return project
         return super().create(*args, **kwargs)
+
+
+class TicketManager(models.Manager):
+    def create_new(self, *args, **kwargs):
+        if 'project' not in kwargs or not isinstance(kwargs['project'], Project):
+            raise ValidationError(_('Project argument must be provided and must be a Project object.'))
+        project = kwargs['project']
+        if 'user' in kwargs and kwargs['user'] is not None:
+            user = kwargs['user']
+            if not isinstance(user, get_user_model()):
+                raise ValidationError(_('User argument must be a User object.'))
+            if not project.can_user_create_tickets(user):
+                raise PermissionDenied(_('Only project members or team admins may create tickets.'))
+        else:
+            raise ValidationError(_('User argument must be provided.'))
+        if 'developer' in kwargs and kwargs['developer'] is not None:
+            developer = kwargs['developer']
+            if not isinstance(developer, get_user_model()):
+                raise ValidationError(_('Developer argument must be a User object.'))
+            # only project managers or team admins may assign a developer
+            if user not in project.team.get_admins() and user != project.manager:
+                raise PermissionDenied(_('Only project managers or team admins may assign a developer.'))
+            if developer not in project.members.all():
+                raise ValidationError(_('Only project members may be assigned as a ticket\'s developer.'))
+        return super().create(*args, **kwargs)
+
 
 
 # CUSTOM QUERYSETS
@@ -238,6 +264,9 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     def can_user_update_manager(self, user):
         return user in self.team.get_admins()
 
+    def can_user_create_tickets(self, user):
+        return user in self.members.all() or user in self.team.get_admins()
+
 
 class ProjectMembership(TimeStampedModel, models.Model):
     """
@@ -299,7 +328,7 @@ class Ticket(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     # the `TitleSlugDescriptionModel` implements title, slug, and description fields, with the slug based on the ticket's title
     # the `TimeStampedModel` implements created and modified fields
 
-    objects = models.Manager.from_queryset(TicketQueryset)()
+    objects = TicketManager.from_queryset(TicketQueryset)()
 
     def __str__(self):
         return f'<Ticket: {self.title}, Slug: {self.slug}>'
@@ -311,6 +340,9 @@ class Ticket(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         return user == self.developer or user == self.project.manager or user in self.project.team.get_admins() or user == self.user
 
     def can_user_change_developer(self, user):
+        return user in self.project.team.get_admins() or user == self.project.manager
+
+    def can_user_delete(self, user):
         return user in self.project.team.get_admins() or user == self.project.manager
 
 
