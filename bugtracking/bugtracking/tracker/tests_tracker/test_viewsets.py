@@ -636,6 +636,16 @@ class TestProjectViewSet(APITestCase):
         new_manager_membership.refresh_from_db()
         assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
 
+    def test_list_view_returns_only_team_projects(self):
+        new_project = baker.make(Project, team=self.team)
+        other_team_project = baker.make(Project)
+        url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(self.admin)
+        response = self.client.get(url)
+        assert len(response.data) ==  2
+        assert response.data[0]['title'] == 'project_title'
+        assert response.data[1]['title'] == new_project.title
+
 
 # Ticket ViewSet
 class TestTicketViewSet(APITestCase):
