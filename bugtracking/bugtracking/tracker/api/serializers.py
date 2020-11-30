@@ -8,7 +8,7 @@ from django.urls import reverse, reverse_lazy
 from rest_framework import serializers
 
 # my internal imports
-from ..models import Team, TeamMembership, Project, ProjectMembership, Ticket, Comment
+from ..models import Team, TeamMembership, Project, ProjectMembership, Ticket, Comment, TeamInvitation
 from bugtracking.users.api.serializers import UserSerializer
 
 User = get_user_model()
@@ -57,6 +57,31 @@ class TeamUpdateSerializer(TeamCreateRetrieveSerializer):
                 'title': 'A team\'s title field cannot be updated after team creation.'
             })
         return super().update(instance, validated_data)
+
+
+class TeamInvitationSerializer(serializers.ModelSerializer):
+    team = serializers.SlugRelatedField(read_only=True, slug_field='slug')
+    url = serializers.SerializerMethodField()
+    inviter = serializers.StringRelatedField(read_only=True)
+    invitee = serializers.StringRelatedField(read_only=True)
+    # invitee = serializers.SlugRelatedField(read_only=True)
+    # inviter = serializers.SlugRelatedField(read_only=True)
+
+    class Meta:
+        model = TeamInvitation
+        fields = ['id', 'status_name', 'team', 'invitee', 'invitee_email', 'inviter', 'message_text', 'created', 'modified', 'url']
+        read_only_fields = ['id', 'status_name', 'team', 'invitee', 'inviter', 'message_text', 'created', 'modified', 'url']
+
+    def get_url(self, invitation):
+        request = self.context.get('request', None)
+        path = reverse_lazy('api:invitations-detail', kwargs={'team_slug': invitation.team.slug, 'id': invitation.id})
+        if request:
+            url = request.build_absolute_uri(str(path)) # passing string path because reverse_lazy returns a proxy object
+            return url
+        return path
+
+    def create(self, validated_data):
+        return TeamInvitation.objects.create_new(**validated_data)
 
 
 # PROJECT-RELATED SERIALIZERS

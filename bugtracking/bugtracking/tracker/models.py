@@ -1,9 +1,12 @@
 # stdlib imports
+import uuid
 
 # core django imports
 from django.db import models
 from django.conf import settings
+from django.core import mail
 from django.contrib.auth import get_user_model
+from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
@@ -47,6 +50,22 @@ class TeamManager(models.Manager):
             return team
         else:
             raise ValidationError(_("The create_new_by_username() method must be passed a `creator`=User kwarg to assign an initial administrator."))
+
+
+class TeamInvitationManager(models.Manager):
+    def create_new(self, *args, **kwargs):
+        if 'inviter' in kwargs and 'team' in kwargs:
+            inviter = kwargs.get('inviter')
+            team = kwargs.get('team')
+            if not isinstance(inviter, get_user_model()):
+                raise ValidationError(_('Inviter parameter must be a valid User object.'))
+            if not isinstance(team, Team):
+                raise ValidationError(_('Team parameter must be a valid Team object.'))
+            message_text = 'Test'
+            invitation = TeamInvitation.objects.create(inviter=inviter, team=team, invitee_email=kwargs.get('invitee_email'), message_text=message_text)
+            return invitation
+        else:
+            raise ValidationError(_("You must pass in a team and inviter parameter."))
 
 
 class ProjectManager(models.Manager):
@@ -204,7 +223,38 @@ class TeamMembership(TimeStampedModel, models.Model):
         return self.get_role_display()
 
 
-# TODO: implement a TeamInvitation model to handle team invites
+class TeamInvitation(TimeStampedModel, models.Model):
+    """
+    Represents all invitations to a given team and handles sending the invite email.
+    """
+    class Status(models.IntegerChoices):
+        PENDING = 1, 'Pending'
+        ACCEPTED = 2, 'Accepted'
+        DECLINED = 3, 'Declined'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.IntegerField(choices=Status.choices, default=Status.PENDING)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    invitee = models.ForeignKey(User, on_delete=models.CASCADE, default=None, null=True, blank=True, related_name='received_team_invites')
+    invitee_email = models.EmailField()
+    inviter = models.ForeignKey(User, on_delete=models.SET_NULL, default=None, null=True, blank=True, related_name='sent_team_invites')
+    message_text = models.TextField()
+    # TimeStampedModel implemented created and modified fields
+
+    objects = TeamInvitationManager()
+
+    @property
+    def status_name(self):
+        return self.get_status_display()
+
+    def send_email(self):
+        domain = get_current_site(request=None).domain
+        mail.send_mail(
+            subject='Team Invitation',
+            message=self.message_text,
+            from_email='noreply@bugtracking.io',
+            recipient_list=[self.invitee_email]
+        )
 
 
 # PROJECT AND RELATED THROUGH MODELS

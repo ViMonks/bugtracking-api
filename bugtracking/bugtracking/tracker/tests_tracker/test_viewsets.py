@@ -16,7 +16,7 @@ from rest_framework.test import APITestCase
 # my internal imports
 from bugtracking.users.models import User
 from bugtracking.tracker.models import (
-    Team, TeamMembership, Project, ProjectMembership, Ticket, Comment
+    Team, TeamMembership, Project, ProjectMembership, Ticket, Comment, TeamInvitation
 )
 from .factories import model_setup as fac
 
@@ -1120,3 +1120,120 @@ class TestTicketViewSet(APITestCase):
         assert len(response.data) == 1
         assert response.data[0]['title'] != other_team_ticket.title
         assert response.data[0]['title'] != other_project_ticket
+
+
+class TestTeamInvitationViewSet(APITestCase):
+    def setUp(self):
+        base = fac()
+        self.team = base['team']
+        self.admin = base['admin']
+        self.member = base['member']
+
+    def test_admin_list(self):
+        """Can view list."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        second_invite = baker.make(TeamInvitation, team=self.team)
+        other_team_invite = baker.make(TeamInvitation)
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 2
+        assert response.data[0]['id'] == str(invite.id)
+        assert response.data[1]['id'] == str(second_invite.id)
+
+    def test_member_list(self):
+        """Cannot view list."""
+        user = self.member
+        invite = baker.make(TeamInvitation, team=self.team)
+        second_invite = baker.make(TeamInvitation, team=self.team)
+        other_team_invite = baker.make(TeamInvitation)
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert len(response.data) == 1
+        assert response.data['errors'] == "Only a team administrator may view or manage team invitations."
+
+    def test_admin_detail(self):
+        """Can view details."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['id'] == str(invite.id)
+
+    def test_member_detail(self):
+        """Cannot view details."""
+        user = self.member
+        invite = baker.make(TeamInvitation, team=self.team)
+        url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert str(response.data['errors']) == "Only a team administrator may view or manage team invitations."
+
+    def test_admin_post(self):
+        """Can post. Creates new invitation tied to the team identified in the url."""
+        user = self.admin
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'invitee_email': 'test@email.com'})
+        assert response.status_code == status.HTTP_201_CREATED
+        invitation = TeamInvitation.objects.last()
+        assert invitation.team == self.team
+        assert invitation.inviter == user
+        assert invitation.invitee_email == 'test@email.com'
+
+    def test_member_post(self):
+        """Cannot post."""
+        user = self.member
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'invitee_email': 'test@email.com'})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert TeamInvitation.objects.count() == 0
+        assert response.data['errors'] == "Only a team administrator may view or manage team invitations."
+
+    def test_admin_delete(self):
+        """Can delete."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
+        self.client.force_login(user)
+        response = self.client.delete(url)
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert TeamInvitation.objects.count() == 0
+
+    def test_member_delete(self):
+        """Cannot delete."""
+        user = self.member
+        invite = baker.make(TeamInvitation, team=self.team)
+        url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
+        self.client.force_login(user)
+        response = self.client.delete(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert TeamInvitation.objects.count() == 1
+
+    def test_put(self):
+        """Method is invalid."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
+        self.client.force_login(user)
+        response = self.client.put(url, {'invitee_email': 'updated@email.com'})
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+        assert invite.invitee_email != 'updated@email.com'
+
+    def test_patch(self):
+        """Method is invalid."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
+        self.client.force_login(user)
+        response = self.client.patch(url, {'invitee_email': 'updated@email.com'})
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+        assert invite.invitee_email != 'updated@email.com'

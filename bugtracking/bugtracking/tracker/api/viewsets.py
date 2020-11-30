@@ -5,10 +5,13 @@ from django.conf import settings
 
 # third party imports
 from rest_framework import viewsets
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 # my internal imports
-from ..models import Team, TeamMembership, Project, Ticket
+from ..models import Team, TeamMembership, Project, Ticket, TeamInvitation
 from . import serializers
 from . import permissions
 
@@ -45,6 +48,27 @@ class TeamViewSet(viewsets.ModelViewSet):
         user = self.request.user
         serializer.save(creator=user)
 
+    # @action(
+    #     detail=True,
+    #     methods=['post'],
+    #     permission_classes=[IsAuthenticated, permissions.TeamInvitePermissionsForAction],
+    #     # serializer_class=serializers.TeamInvitationSerializer
+    # )
+    # def invite_new_member(self, request, **kwargs):
+    #     serializer = serializers.TeamInvitationSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         inviter = self.request.user
+    #         team_slug = kwargs.get('slug', None)
+    #         team = Team.objects.get(slug=team_slug)
+    #         serializer.save(inviter=inviter, team=team)
+    #         return Response({'status': 'User invited.'})
+    #     else:
+    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    #
+    # @invite_new_member.mapping.get
+    # def list_invitations(self, request, **kwargs):
+    #     return Response({'out': 'A list'})
+
 
 class TeamMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TeamMembershipSerializer
@@ -54,6 +78,28 @@ class TeamMembershipViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         return TeamMembership.objects.filter(user=user)
+
+
+class TeamInvitationViewSet(viewsets.ModelViewSet):
+    serializer_class = serializers.TeamInvitationSerializer
+    permission_classes = [IsAuthenticated, permissions.TeamInvitePermissions]
+    lookup_field = 'id'
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        team_slug = self.kwargs.get('team_slug')
+        team = Team.objects.get(slug=team_slug)
+        return TeamInvitation.objects.filter(team=team)
+
+    def perform_create(self, serializer):
+        if serializer.is_valid():
+            inviter = self.request.user
+            team_slug = self.kwargs.get('team_slug', None)
+            team = Team.objects.get(slug=team_slug)
+            serializer.save(inviter=inviter, team=team)
+            return Response({'status': 'User invited.'})
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):

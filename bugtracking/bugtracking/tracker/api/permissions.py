@@ -28,6 +28,39 @@ class TeamPermissions(BasePermission):
         return request.user in obj.get_admins()
 
 
+class TeamInvitePermissionsForAction(BasePermission):
+    """
+    Only team admins may invite new members.
+    """
+    message = {'errors': 'Permission denied.'}
+
+    def has_object_permission(self, request, view, obj):
+        if request.user in obj.get_admins():
+            return True
+        self.message['errors'] = 'Only team administrators may invite new members.'
+        return False
+
+
+class TeamInvitePermissions(BasePermission):
+    """
+    Only team admins may view team invitations or invite new members.
+    """
+    message = {'errors': 'Permission denied.'}
+
+    def has_permission(self, request, view):
+        team = Team.objects.get(slug=view.kwargs['team_slug'])
+        if request.user in team.get_admins():
+            return True
+        self.message['errors'] = "Only a team administrator may view or manage team invitations."
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        if request.user in obj.team.get_admins():
+            return True
+        self.message['errors'] = "Only a team administrator may view or manage team invitations."
+        return False
+
+
 class ProjectPermissions(BasePermission):
     """
     View permissions: All project members can view a project.
