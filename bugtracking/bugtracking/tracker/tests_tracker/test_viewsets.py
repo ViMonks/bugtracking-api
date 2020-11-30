@@ -1238,6 +1238,20 @@ class TestTeamInvitationViewSet(APITestCase):
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
         assert invite.invitee_email != 'updated@email.com'
 
+    def test_inviting_user_who_is_already_a_member(self):
+        """Can post. Creates new invitation tied to the team identified in the url."""
+        self.member.email = 'already_member@email.com'
+        self.member.save()
+        user = self.admin
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'invitee_email': self.member.email})
+        assert response.status_code == status.HTTP_201_CREATED
+        invitation = TeamInvitation.objects.last()
+        assert invitation.team == self.team
+        assert invitation.inviter == user
+        assert invitation.invitee_email == 'test@email.com'
+
 
 class TestAcceptInvitation(APITestCase):
     def setUp(self):

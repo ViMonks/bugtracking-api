@@ -2,7 +2,8 @@
 
 # core django imports
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.utils.translation import gettext_lazy as _
 
 # third party imports
 from rest_framework import viewsets
@@ -10,6 +11,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.serializers import ValidationError as SerializerValidationError
 
 # my internal imports
 from ..models import Team, TeamMembership, Project, Ticket, TeamInvitation
@@ -81,27 +83,6 @@ class TeamViewSet(viewsets.ModelViewSet):
         except:
             return Response({'errors': 'Invitation not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # @action(
-    #     detail=True,
-    #     methods=['post'],
-    #     permission_classes=[IsAuthenticated, permissions.TeamInvitePermissionsForAction],
-    #     # serializer_class=serializers.TeamInvitationSerializer
-    # )
-    # def invite_new_member(self, request, **kwargs):
-    #     serializer = serializers.TeamInvitationSerializer(data=request.data)
-    #     if serializer.is_valid():
-    #         inviter = self.request.user
-    #         team_slug = kwargs.get('slug', None)
-    #         team = Team.objects.get(slug=team_slug)
-    #         serializer.save(inviter=inviter, team=team)
-    #         return Response({'status': 'User invited.'})
-    #     else:
-    #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    #
-    # @invite_new_member.mapping.get
-    # def list_invitations(self, request, **kwargs):
-    #     return Response({'out': 'A list'})
-
 
 class TeamMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TeamMembershipSerializer
@@ -125,10 +106,14 @@ class TeamInvitationViewSet(viewsets.ModelViewSet):
         return TeamInvitation.objects.filter(team=team)
 
     def perform_create(self, serializer):
+        invitee_email = self.request.data.get('invitee_email')
         if serializer.is_valid():
             inviter = self.request.user
             team_slug = self.kwargs.get('team_slug', None)
             team = Team.objects.get(slug=team_slug)
+            already_a_member = team.members.filter(email=invitee_email)
+            if already_a_member:
+                raise SerializerValidationError({'errors': 'User is already a member of this team.'})
             serializer.save(inviter=inviter, team=team)
             return Response({'status': 'User invited.'})
         else:

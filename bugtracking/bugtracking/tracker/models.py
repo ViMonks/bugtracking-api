@@ -5,6 +5,8 @@ import uuid
 from django.db import models
 from django.conf import settings
 from django.core import mail
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from django.contrib.auth import get_user_model
 from django.contrib.sites.shortcuts import get_current_site
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
@@ -247,13 +249,24 @@ class TeamInvitation(TimeStampedModel, models.Model):
     def status_name(self):
         return self.get_status_display()
 
-    def send_email(self):
-        domain = get_current_site(request=None).domain
+    def send_invitation_email(self):
+        accept_url = f'http://localhost:8000/api/teams/monks-test-team/accept_invitation/?invitation={str(self.id)}'
+        decline_url = f'http://localhost:8000/api/teams/monks-test-team/decline_invitation/?invitation={str(self.id)}'
+        register_url = 'I\'m working on it.'
+        html_message = render_to_string('tracker/team_invite_email.html', {
+            'accept_url': accept_url,
+            'decline_url': decline_url,
+            'register_url': register_url,
+            'team': self.team.title,
+            'inviter': self.inviter.username
+        })
+        plain_message = strip_tags(html_message)
         mail.send_mail(
             subject='Team Invitation',
-            message=self.message_text,
+            message=plain_message,
             from_email='noreply@bugtracking.io',
-            recipient_list=[self.invitee_email]
+            recipient_list=[self.invitee_email],
+            html_message=html_message
         )
 
     def accept_invite(self, user):

@@ -81,7 +81,9 @@ class TeamInvitationSerializer(serializers.ModelSerializer):
         return path
 
     def create(self, validated_data):
-        return TeamInvitation.objects.create_new(**validated_data)
+        invitation = TeamInvitation.objects.create_new(**validated_data)
+        invitation.send_invitation_email()
+        return invitation
 
 
 # PROJECT-RELATED SERIALIZERS
