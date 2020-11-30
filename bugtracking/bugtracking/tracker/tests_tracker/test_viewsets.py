@@ -1237,3 +1237,187 @@ class TestTeamInvitationViewSet(APITestCase):
         response = self.client.patch(url, {'invitee_email': 'updated@email.com'})
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
         assert invite.invitee_email != 'updated@email.com'
+
+
+class TestAcceptInvitation(APITestCase):
+    def setUp(self):
+        base = fac()
+        self.team = base['team']
+        self.invitee = user(username='invitee')
+        self.invitee.email = 'test@email.com'
+        self.invitee.save()
+        self.invitation = baker.make(TeamInvitation, invitee_email=self.invitee.email, team=self.team)
+
+    def test_invitee_can_accept(self):
+        """Tests that user can accept the invitation and that the user is successfully added to the team's members."""
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'Invitation accepted.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.ACCEPTED
+        assert user in self.team.members.all()
+
+    def test_invalid_team(self):
+        """Fails with a 400 bad request."""
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': 'invalid'})}?invitation={str(self.invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_invalid_invitation_id(self):
+        """Fails with a 400 bad request."""
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation=invalid"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_uninvited_user_accesses_valid_invitation_url(self):
+        """Fails with a 403 forbidden."""
+        user = User.objects.create_user(username='not_invited', password='password')
+        user.email = 'invalid@email.com'
+        user.save()
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_invited_user_accesses_wrong_invitation_uuid(self):
+        """An invited user accessing an invalid invitation UUID receives the 400 bad request error in response."""
+        other_invitation = baker.make(TeamInvitation, team=self.team)
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(other_invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_anonymous_user(self):
+        """Fails with a 403 forbidden."""
+        url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+
+
+class TestDeclineInvitation(APITestCase):
+    def setUp(self):
+        base = fac()
+        self.team = base['team']
+        self.invitee = user(username='invitee')
+        self.invitee.email = 'test@email.com'
+        self.invitee.save()
+        self.invitation = baker.make(TeamInvitation, invitee_email=self.invitee.email, team=self.team)
+
+    def test_invitee_can_decline(self):
+        """Tests that user can decline the invitation."""
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'Invitation declined.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.DECLINED
+        assert user not in self.team.members.all()
+
+    def test_invalid_team(self):
+        """Fails with a 400 bad request."""
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': 'invalid'})}?invitation={str(self.invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_invalid_invitation_id(self):
+        """Fails with a 400 bad request."""
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation=invalid"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_uninvited_user_accesses_valid_invitation_url(self):
+        """Fails with a 403 forbidden."""
+        user = User.objects.create_user(username='not_invited', password='password')
+        user.email = 'invalid@email.com'
+        user.save()
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_invited_user_accesses_wrong_invitation_uuid(self):
+        """An invited user accessing an invalid invitation UUID receives the 400 bad request error in response."""
+        other_invitation = baker.make(TeamInvitation, team=self.team)
+        user = self.invitee
+        assert user not in self.team.members.all()
+        url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(other_invitation.id)}"
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Invitation not found.'
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING
+        assert user not in self.team.members.all()
+
+    def test_anonymous_user(self):
+        """Fails with a 403 forbidden."""
+        url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.team.refresh_from_db()
+        self.invitation.refresh_from_db()
+        assert self.invitation.status == TeamInvitation.Status.PENDING

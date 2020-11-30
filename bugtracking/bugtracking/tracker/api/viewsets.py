@@ -2,6 +2,7 @@
 
 # core django imports
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 # third party imports
 from rest_framework import viewsets
@@ -47,6 +48,38 @@ class TeamViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         serializer.save(creator=user)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        permission_classes=[IsAuthenticated, permissions.BeenInvitedToTeam]
+    )
+    def accept_invitation(self, request, **kwargs):
+        try:
+            invitation_id = self.request.GET.get('invitation')
+            team_slug = kwargs.get('slug')
+            team = Team.objects.get(slug=team_slug)
+            invitation = TeamInvitation.objects.get(team=team, id=invitation_id, invitee_email=request.user.email)
+            invitation.accept_invite(user=request.user)
+            return Response({'status': 'Invitation accepted.'})
+        except:
+            return Response({'errors': 'Invitation not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(
+        detail=True,
+        methods=['get'],
+        permission_classes=[IsAuthenticated, permissions.BeenInvitedToTeam]
+    )
+    def decline_invitation(self, request, **kwargs):
+        try:
+            invitation_id = self.request.GET.get('invitation')
+            team_slug = kwargs.get('slug')
+            team = Team.objects.get(slug=team_slug)
+            invitation = TeamInvitation.objects.get(team=team, id=invitation_id, invitee_email=request.user.email)
+            invitation.decline_invite(user=request.user)
+            return Response({'status': 'Invitation declined.'})
+        except:
+            return Response({'errors': 'Invitation not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
     # @action(
     #     detail=True,

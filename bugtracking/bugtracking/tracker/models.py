@@ -256,6 +256,17 @@ class TeamInvitation(TimeStampedModel, models.Model):
             recipient_list=[self.invitee_email]
         )
 
+    def accept_invite(self, user):
+        self.invitee = user
+        self.status = self.Status.ACCEPTED
+        self.save()
+        self.team.add_member(user)
+
+    def decline_invite(self, user):
+        self.invitee = user
+        self.status = self.Status.DECLINED
+        self.save()
+
 
 # PROJECT AND RELATED THROUGH MODELS
 

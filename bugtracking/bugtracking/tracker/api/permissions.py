@@ -61,6 +61,20 @@ class TeamInvitePermissions(BasePermission):
         return False
 
 
+class BeenInvitedToTeam(BasePermission):
+    """
+    Tests to see whether the requesting user has been invited to the team.
+    """
+    message = {'errors': 'You have not been invited to this team.'}
+
+    def has_object_permission(self, request, view, obj):
+        invitations = obj.invitations_set.filter(invitee_email=request.user.email)
+        if invitations:
+            return True
+        return False
+
+
+
 class ProjectPermissions(BasePermission):
     """
     View permissions: All project members can view a project.
