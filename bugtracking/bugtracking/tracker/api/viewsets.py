@@ -2,6 +2,7 @@
 
 # core django imports
 from django.conf import settings
+from django.db.utils import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.utils.translation import gettext_lazy as _
 
@@ -106,18 +107,32 @@ class TeamInvitationViewSet(viewsets.ModelViewSet):
         return TeamInvitation.objects.filter(team=team)
 
     def perform_create(self, serializer):
-        invitee_email = self.request.data.get('invitee_email')
-        if serializer.is_valid():
-            inviter = self.request.user
-            team_slug = self.kwargs.get('team_slug', None)
-            team = Team.objects.get(slug=team_slug)
-            already_a_member = team.members.filter(email=invitee_email)
-            if already_a_member:
-                raise SerializerValidationError({'errors': 'User is already a member of this team.'})
-            serializer.save(inviter=inviter, team=team)
-            return Response({'status': 'User invited.'})
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            invitee_email = self.request.data.get('invitee_email')
+            if serializer.is_valid():
+                inviter = self.request.user
+                team_slug = self.kwargs.get('team_slug', None)
+                team = Team.objects.get(slug=team_slug)
+                already_a_member = team.members.filter(email=invitee_email)
+                if already_a_member:
+                    raise SerializerValidationError({'errors': 'User is already a member of this team.'})
+                serializer.save(inviter=inviter, team=team)
+                return Response({'status': 'User invited.'})
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError:
+            content = {'errors': 'Someone at that email address has already been invited to this team.'}
+            raise SerializerValidationError(content)
+
+    @action(
+        detail=True,
+        methods=['get'],
+    )
+    def resend_email(self, *args, **kwargs):
+        extra_info = 'You are receiving this invitation again because a team administrator requested it.'
+        invitation = self.get_object()
+        invitation.send_invitation_email(extra_info=extra_info)
+        return Response({'status': 'Invitation email sent successfully.'})
 
 
 class ProjectViewSet(viewsets.ModelViewSet):

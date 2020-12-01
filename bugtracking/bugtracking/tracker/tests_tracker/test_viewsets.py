@@ -5,6 +5,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError, ObjectDoesNotExist, PermissionDenied
 from django.shortcuts import reverse
+from django.core import mail
 
 # third party imports
 import pytest
@@ -1239,18 +1240,73 @@ class TestTeamInvitationViewSet(APITestCase):
         assert invite.invitee_email != 'updated@email.com'
 
     def test_inviting_user_who_is_already_a_member(self):
-        """Can post. Creates new invitation tied to the team identified in the url."""
+        """Post returns an error message saying the user is already a member. Does not create a new invitation."""
+        number_of_invitations = TeamInvitation.objects.count()
         self.member.email = 'already_member@email.com'
         self.member.save()
         user = self.admin
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
         self.client.force_login(user)
         response = self.client.post(url, {'invitee_email': self.member.email})
-        assert response.status_code == status.HTTP_201_CREATED
-        invitation = TeamInvitation.objects.last()
-        assert invitation.team == self.team
-        assert invitation.inviter == user
-        assert invitation.invitee_email == 'test@email.com'
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert TeamInvitation.objects.count() == number_of_invitations
+        assert response.data['errors'] == 'User is already a member of this team.'
+
+    def test_inviting_user_who_is_already_invited(self):
+        """Should not create a new invitation object."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        assert TeamInvitation.objects.count() == 1
+        email = invite.invitee_email
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'invitee_email': email})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert TeamInvitation.objects.count() == 1
+        assert 'already been invited' in response.data['errors']
+
+
+class TestInvitationEmailSending(APITestCase):
+    def setUp(self) -> None:
+        base = fac()
+        self.team = base['team']
+        self.admin = base['admin']
+        self.member = base['member']
+
+    def test_email_is_sent(self):
+        """Tests that email is sent, as well as email's details."""
+        user = self.admin
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'invitee_email': 'test@email.com'})
+        assert len(mail.outbox) == 1
+        email = mail.outbox[0]
+        assert email.subject == 'Team Invitation'
+        assert str(self.team.title) in email.body
+        assert 'test@email.com' in email.to
+
+    def test_resending_invitation_email(self):
+        user = self.admin
+        invitation = baker.make(TeamInvitation, team=self.team, inviter=self.admin)
+        url = reverse('api:invitations-resend-email', kwargs={'team_slug': self.team.slug, 'id': str(invitation.id)})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'Invitation email sent successfully.'
+        assert len(mail.outbox) == 1
+        email = mail.outbox[0]
+        assert email.subject == 'Team Invitation'
+        assert 'You are receiving this invitation again' in email.body
+        assert invitation.invitee_email in email.to
+
+    def test_non_admins_cant_resend_email(self):
+        user = self.member
+        invitation = baker.make(TeamInvitation, team=self.team, inviter=self.admin)
+        url = reverse('api:invitations-resend-email', kwargs={'team_slug': self.team.slug, 'id': str(invitation.id)})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert len(mail.outbox) == 0
 
 
 class TestAcceptInvitation(APITestCase):

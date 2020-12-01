@@ -245,21 +245,27 @@ class TeamInvitation(TimeStampedModel, models.Model):
 
     objects = TeamInvitationManager()
 
+    class Meta:
+        unique_together = ['invitee_email', 'team']
+
     @property
     def status_name(self):
         return self.get_status_display()
 
-    def send_invitation_email(self):
+    def send_invitation_email(self, extra_info=None):
         accept_url = f'http://localhost:8000/api/teams/monks-test-team/accept_invitation/?invitation={str(self.id)}'
         decline_url = f'http://localhost:8000/api/teams/monks-test-team/decline_invitation/?invitation={str(self.id)}'
         register_url = 'I\'m working on it.'
-        html_message = render_to_string('tracker/team_invite_email.html', {
+        context = {
             'accept_url': accept_url,
             'decline_url': decline_url,
             'register_url': register_url,
             'team': self.team.title,
             'inviter': self.inviter.username
-        })
+        }
+        if extra_info:
+            context['extra_info'] = extra_info
+        html_message = render_to_string('tracker/team_invite_email.html', context)
         plain_message = strip_tags(html_message)
         mail.send_mail(
             subject='Team Invitation',
