@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from rest_framework.views import Response, exception_handler
 from rest_framework import status
 
-
+# currently unused but could be useful
 def custom_exception_handler(exc, context):
     # Call REST framework's default exception handler first to get the standard error response.
     response = exception_handler(exc, context)

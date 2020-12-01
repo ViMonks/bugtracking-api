@@ -41,6 +41,23 @@ class TeamInvitePermissionsForAction(BasePermission):
         return False
 
 
+class TeamAdminsOnly(BasePermission):
+    """Only team admins given permission."""
+    message = {'errors': 'Only team administrators may perform that action.'}
+
+    def has_permission(self, request, view):
+        team_slug = view.kwargs['slug']
+        team = Team.objects.get(slug=team_slug)
+        if request.user in team.get_admins():
+            return True
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        if request.user in obj.get_admins():
+            return True
+        return False
+
+
 class TeamInvitePermissions(BasePermission):
     """
     Only team admins may view team invitations or invite new members.

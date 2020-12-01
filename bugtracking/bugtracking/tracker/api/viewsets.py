@@ -4,6 +4,7 @@
 from django.conf import settings
 from django.db.utils import IntegrityError
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 # third party imports
@@ -19,7 +20,7 @@ from ..models import Team, TeamMembership, Project, Ticket, TeamInvitation
 from . import serializers
 from . import permissions
 
-User = settings.AUTH_USER_MODEL
+User = get_user_model()
 
 
 class TeamViewSet(viewsets.ModelViewSet):
@@ -84,10 +85,40 @@ class TeamViewSet(viewsets.ModelViewSet):
         except:
             return Response({'errors': 'Invitation not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(
+        detail=True,
+        methods=['get'],
+        permission_classes=[IsAuthenticated, permissions.TeamAdminsOnly]
+    )
+    def step_down_as_admin(self, request, **kwargs):
+        try:
+            team_slug = kwargs.get('slug')
+            team = Team.objects.get(slug=team_slug)
+            team.remove_self_as_admin(user=request.user)
+            return Response({'status': 'You have successfully stepped down as team admin.'})
+        except ValidationError as e:
+            return Response({'errors': e.message}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(
+        detail=True,
+        methods=['post'],
+        permission_classes=[IsAuthenticated, permissions.TeamAdminsOnly]
+    )
+    def promote_admin(self, request, **kwargs):
+        team = self.get_object()
+        try:
+            target_user = User.objects.get(username=request.data['user'])
+        except ObjectDoesNotExist:
+            return Response({'errors': 'User does not exist.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            team.make_admin(target_user)
+            return Response({'status': 'Member successfully promoted to administrator.'})
+        except ValidationError as e:
+            return Response({'errors': e.message}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class TeamMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TeamMembershipSerializer
-    # permission_classes = [IsAuthenticated]
     # TODO: adjust permission classes; or maybe doesn't matter; don't think I'll have this viewset publicly exposed; by default, it's admin only
 
     def get_queryset(self):
@@ -156,10 +187,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         team_slug = self.kwargs['team_slug']
         team = Team.objects.get(slug=team_slug)
-        manager_username = self.kwargs.get('manager', None)
-        if manager_username is not None:
-            manager = User.objects.get(username=manager_username)
-            serializer.save(team=team, manager=manager)
         serializer.save(team=team)
 
 
@@ -192,8 +219,4 @@ class TicketViewSet(viewsets.ModelViewSet):
         team = Team.objects.get(slug=team_slug)
         project_slug = self.kwargs['project_slug']
         project = Project.objects.get(slug=project_slug, team=team)
-        developer_username = self.kwargs.get('developer', None)
-        if developer_username is not None:
-            developer = User.objects.get(username=developer_username)
-            serializer.save(project=project, user=self.request.user, developer=developer)
         serializer.save(project=project, user=self.request.user)

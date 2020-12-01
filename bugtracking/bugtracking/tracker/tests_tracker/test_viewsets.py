@@ -1491,3 +1491,88 @@ class TestDeclineInvitation(APITestCase):
         self.team.refresh_from_db()
         self.invitation.refresh_from_db()
         assert self.invitation.status == TeamInvitation.Status.PENDING
+
+
+class TestChangingTeamAdmins(APITestCase):
+    def setUp(self) -> None:
+        base = fac()
+        self.team = base['team']
+        self.admin = base['admin']
+        self.member = base['member']
+        self.nonmember = base['nonmember']
+
+    def test_admin_can_step_down_when_second_admin_exists(self):
+        self.team.make_admin(self.member)
+        user = self.admin
+        url = reverse('api:teams-step-down-as-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'You have successfully stepped down as team admin.'
+        self.team.refresh_from_db()
+        assert self.admin not in self.team.get_admins()
+
+    def test_member_gets_permission_denied(self):
+        user = self.member
+        url = reverse('api:teams-step-down-as-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data['errors'] == 'Only team administrators may perform that action.'
+        self.team.refresh_from_db()
+        assert self.admin in self.team.get_admins()
+
+    def test_admin_cannot_step_down_if_only_one_admin(self):
+        user = self.admin
+        url = reverse('api:teams-step-down-as-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'You cannot step down as team administrator if you are the only administration. Pleasea promote another member to administrator first.'
+        self.team.refresh_from_db()
+        assert self.admin in self.team.get_admins()
+
+    def test_promoting_new_admin(self):
+        assert self.member not in self.team.get_admins()
+        user = self.admin
+        url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'user': self.member.username})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['status'] == 'Member successfully promoted to administrator.'
+        self.team.refresh_from_db()
+        assert self.admin in self.team.get_admins()
+        assert self.member in self.team.get_admins()
+
+    def test_non_admin_cant_promote_admin(self):
+        user = self.member
+        url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'user': self.member.username})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.data['errors'] == 'Only team administrators may perform that action.'
+        self.team.refresh_from_db()
+        assert self.admin in self.team.get_admins()
+        assert self.member not in self.team.get_admins()
+
+    def test_promoting_nonexistent_user_fails(self):
+        user = self.admin
+        url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'user': 'user_does_not_exist'})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'User does not exist.'
+        self.team.refresh_from_db()
+        assert self.admin in self.team.get_admins()
+        assert self.member not in self.team.get_admins()
+
+    def test_promoting_user_who_is_not_team_member_fails(self):
+        user = self.admin
+        url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
+        self.client.force_login(user)
+        response = self.client.post(url, {'user': self.nonmember.username})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.data['errors'] == 'Cannot make user an admin. User is not a member of your team.'
+        self.team.refresh_from_db()
+        assert self.admin in self.team.get_admins()
+        assert self.nonmember not in self.team.get_admins()

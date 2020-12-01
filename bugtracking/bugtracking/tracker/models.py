@@ -201,6 +201,17 @@ class Team(TitleSlugDescriptionModel, models.Model):
     def is_user_member(self, user):
         return user in self.members.all()
 
+    def remove_self_as_admin(self, user):
+        """Method for removing oneself as a team admin."""
+        if len(self.get_admins()) == 1:
+            raise ValidationError(_('You cannot step down as team administrator if you are the only administration. Pleasea promote another member to administrator first.'))
+        try:
+            membership = self.memberships.get(user=user)
+            membership.role = TeamMembership.Roles.MEMBER
+            membership.save()
+        except ObjectDoesNotExist:
+            raise ValidationError(_("Invalid user submitted."))
+
 
 class TeamMembership(TimeStampedModel, models.Model):
     """
