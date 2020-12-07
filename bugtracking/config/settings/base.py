@@ -71,6 +71,10 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "corsheaders",
+    # OAuth
+    "oauth2_provider",
+    "social_django",
+    "rest_framework_social_oauth2",
 ]
 
 LOCAL_APPS = [
@@ -89,6 +93,7 @@ MIGRATION_MODULES = {"sites": "bugtracking.contrib.sites.migrations"}
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
+    "rest_framework_social_oauth2.backends.DjangoOAuth2",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
@@ -183,6 +188,8 @@ TEMPLATES = [
                 "django.template.context_processors.tz",
                 "django.contrib.messages.context_processors.messages",
                 "bugtracking.utils.context_processors.settings_context",
+                "social_django.context_processors.backends",
+                "social_django.context_processors.login_redirect",
             ],
         },
     }
@@ -272,6 +279,8 @@ SOCIALACCOUNT_ADAPTER = "bugtracking.users.adapters.SocialAccountAdapter"
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
+        "rest_framework_social_oauth2.authentication.SocialAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ),
@@ -283,3 +292,5 @@ REST_FRAMEWORK = {
 CORS_URLS_REGEX = r"^/api/.*$"
 # Your stuff...
 # ------------------------------------------------------------------------------
+# Django Rest Framework Social Oauth 2 settings, https://github.com/RealmTeam/django-rest-framework-social-oauth2
+# DRFSO2_URL_NAMESPACE = 'oauth'
