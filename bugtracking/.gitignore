@@ -326,6 +326,12 @@ bugtracking/media/
 
 
 .ipython/
-.env
-.envs/*
-!.envs/.local/
+.env
+
+.envs/*
+bugtracking/.envs/
+.django
+.postgres
+
+!.envs/.local/
+

@@ -93,6 +93,8 @@ MIGRATION_MODULES = {"sites": "bugtracking.contrib.sites.migrations"}
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#authentication-backends
 AUTHENTICATION_BACKENDS = [
+    # OAuth backends
+    "social_core.backends.google.GoogleOAuth2",
     "rest_framework_social_oauth2.backends.DjangoOAuth2",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
@@ -294,3 +296,10 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # ------------------------------------------------------------------------------
 # Django Rest Framework Social Oauth 2 settings, https://github.com/RealmTeam/django-rest-framework-social-oauth2
 # DRFSO2_URL_NAMESPACE = 'oauth'
+# Google configuration
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_OAUTH_KEY')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_OAUTH_SECRET')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/userinfo.profile',
+]

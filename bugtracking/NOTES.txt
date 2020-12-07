@@ -3,3 +3,15 @@ These are not covered in the Django test run configuration.
 
 To run shell or shell_plus, in terminal:
 docker-compose -f local.yml run django python manage.py shell
+
+Got social authentication working, using this package: https://github.com/RealmTeam/django-rest-framework-social-oauth2
+It's a library that integrates Python Social Auth and Django OAuth Toolkit into DRF.
+The github page has good instructions, but primary usage involves two endpoints:
+For Django users, there's an endpoint to exchange a username and a password for an access token. This token is then used to authorize requests.
+For social users, there's an endpoint to exchange the OAuth TOKEN for a Django token. This endpoint also creates a new user if necessary.
+In both cases, the tokens expire after ten hours. There's a refresh token endpoint, where you provide a refresh token and receive a new Django authorization token in response.
+I'll have to figure out how to handle all of this on the front end. Particularly:
+1. Storing tokens
+2. Knowing when tokens need to be refreshed and handling that
+3. Properly redirecting logged out users/users whose tokens have expired.
+But I've got the basics working.

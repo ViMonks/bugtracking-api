@@ -81,7 +81,7 @@ class TestTeamViewSet(APITestCase):
         """Cannot view."""
         url = reverse('api:teams-list')
         response = self.client.get(url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_retrieve_admin(self):
         """Can view."""
@@ -110,7 +110,7 @@ class TestTeamViewSet(APITestCase):
         """Cannot view."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
         response = self.client.get(url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_post_admin(self):
         """Can create."""
@@ -136,7 +136,7 @@ class TestTeamViewSet(APITestCase):
         """Cannot create."""
         url = reverse('api:teams-list')
         response = self.client.post(url, self.post_data)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
         assert Team.objects.all().count() == 1
 
     def test_put_admin(self):
@@ -295,7 +295,7 @@ class TestProjectViewSet(APITestCase):
         """Cannot view."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
         response = self.client.get(url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
 
     def test_retrieve_admin(self):
         """Can view."""
@@ -400,7 +400,7 @@ class TestProjectViewSet(APITestCase):
         """Cannot create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
         response = self.client.post(url, self.post_data)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
         assert Project.objects.all().count() == 1
 
     def test_put_admin(self):
@@ -464,7 +464,7 @@ class TestProjectViewSet(APITestCase):
         """Cannot put."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
         response = self.client.put(url, self.put_data)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
         assert Project.objects.all().count() == 1
         self.project.refresh_from_db()
         assert not self.project.title == self.put_data['title']
@@ -1392,10 +1392,10 @@ class TestAcceptInvitation(APITestCase):
         assert user not in self.team.members.all()
 
     def test_anonymous_user(self):
-        """Fails with a 403 forbidden."""
+        """Fails with a 401 or 403 forbidden."""
         url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
         response = self.client.get(url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
         self.team.refresh_from_db()
         self.invitation.refresh_from_db()
         assert self.invitation.status == TeamInvitation.Status.PENDING
@@ -1487,7 +1487,7 @@ class TestDeclineInvitation(APITestCase):
         """Fails with a 403 forbidden."""
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
         response = self.client.get(url)
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_403_FORBIDDEN or response.status_code == status.HTTP_401_UNAUTHORIZED
         self.team.refresh_from_db()
         self.invitation.refresh_from_db()
         assert self.invitation.status == TeamInvitation.Status.PENDING
