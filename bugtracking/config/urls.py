@@ -25,8 +25,11 @@ urlpatterns += [
     path("api/", include("config.api_router")),
     # DRF auth token
     path("auth-token/", obtain_auth_token),
-    # OAuth
-    path("api/auth/", include('rest_framework_social_oauth2.urls')),
+    # OAuth https://github.com/RealmTeam/django-rest-framework-social-oauth2
+    path("api/oauth/", include('rest_framework_social_oauth2.urls')),
+    # Rest Auth https://django-rest-auth.readthedocs.io/
+    path("api/auth/", include("rest_auth.urls")),
+    path("api/auth/registration/", include("rest_auth.registration.urls")),
 ]
 
 if settings.DEBUG:

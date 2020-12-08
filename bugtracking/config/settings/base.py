@@ -75,6 +75,8 @@ THIRD_PARTY_APPS = [
     "oauth2_provider",
     "social_django",
     "rest_framework_social_oauth2",
+    "rest_auth",
+    "rest_auth.registration",
 ]
 
 LOCAL_APPS = [
@@ -297,8 +299,8 @@ CORS_URLS_REGEX = r"^/api/.*$"
 # Django Rest Framework Social Oauth 2 settings, https://github.com/RealmTeam/django-rest-framework-social-oauth2
 # DRFSO2_URL_NAMESPACE = 'oauth'
 # Google configuration
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_OAUTH_KEY')
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_OAUTH_SECRET')
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_OAUTH2_KEY')
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = env('GOOGLE_OAUTH2_SECRET')
 SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
