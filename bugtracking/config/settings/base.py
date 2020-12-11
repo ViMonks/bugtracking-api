@@ -277,6 +277,11 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_ADAPTER = "bugtracking.users.adapters.AccountAdapter"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 SOCIALACCOUNT_ADAPTER = "bugtracking.users.adapters.SocialAccountAdapter"
+# Settings to change account signup confirmation emails to use the front-end URLs
+CUSTOM_ACCOUNT_CONFIRMATION_EMAIL_URL = "/verify-email/?key={0}" # usage here: https://stackoverflow.com/questions/27984901/how-to-customize-activate-url-on-django-allauth
+FRONTEND_HOST = "https://FRONTEND.com" # usage also here: https://github.com/Tivix/django-rest-auth/issues/389#issuecomment-350487890
+# note that the above only works for account confirmation emails; the password reset confirmation emails are constructed differently
+# change the Sites 'domain name' in admin to adjust the password reset email link
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
@@ -286,7 +291,7 @@ REST_FRAMEWORK = {
         "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
         "rest_framework_social_oauth2.authentication.SocialAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "bugtracking.users.utils.BearerAuthentication",
+        # "bugtracking.users.utils.BearerAuthentication",
         # "rest_framework.authentication.TokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAdminUser",),

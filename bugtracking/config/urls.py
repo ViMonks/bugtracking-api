@@ -6,6 +6,11 @@ from django.views import defaults as default_views
 from django.views.generic import TemplateView
 from rest_framework.authtoken.views import obtain_auth_token
 
+from rest_auth import views as rest_auth_views
+from rest_framework_social_oauth2.views import TokenView as token_login_view
+
+# Frontend
+
 urlpatterns = [
     path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
     path(
@@ -28,8 +33,13 @@ urlpatterns += [
     # OAuth https://github.com/RealmTeam/django-rest-framework-social-oauth2
     path("api/oauth/", include('rest_framework_social_oauth2.urls')),
     # Rest Auth https://django-rest-auth.readthedocs.io/
-    path("api/auth/", include("rest_auth.urls")),
+    path("api/auth/login/", token_login_view.as_view()),
+    path("api/auth/", include(("rest_auth.urls", 'rest_auth'), namespace='rest_auth')),
     path("api/auth/registration/", include("rest_auth.registration.urls")),
+    # this url is used to generate email content
+    path('password-reset/confirm/<uidb64>/<token>/',
+        TemplateView.as_view(template_name="password_reset_confirm.html"),
+        name='password_reset_confirm'),
 ]
 
 if settings.DEBUG:

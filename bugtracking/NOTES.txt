@@ -16,3 +16,13 @@ I'll have to figure out how to handle all of this on the front end. Particularly
 3. Properly redirecting logged out users/users whose tokens have expired.
 But I've got the basics working.
 
+UPDATE: 12/11/20
+User management is more or less done, but it's kind of a hacky implementation. I'm using DRF-Social-OAuth2 for logging in (regular or social users) and creating new users based on social accounts.
+The token endpoint provides an OAuth2 token, which is used for authorization for any of the views.
+Then I'm using Django-Rest-Auth, which is an Allauth implementation, to provide endpoints for user creation, password management, etc., complete with email confirmation.
+Problem is, this package also provides login endpoints, which return regular DRF Tokens, but I'm not using those for auth. Using OAuth2 tokens instead.
+So I've redirected the login endpoint, which is hacky, but it works. I also had to modify the Allauth email sending functionality to use the frontend urls.
+See settings.CUSTOM_ACCOUNT_CONFIRMATION_EMAIL_URL and settings.FRONTEND_HOST for details on that implementation. But again, it's hacky.
+
+DRF-Social-OAuth2: https://github.com/RealmTeam/django-rest-framework-social-oauth2
+Django-Rest-Auth: https://django-rest-auth.readthedocs.io/en/latest/api_endpoints.html
