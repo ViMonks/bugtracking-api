@@ -27,3 +27,12 @@ See settings.CUSTOM_ACCOUNT_CONFIRMATION_EMAIL_URL and settings.FRONTEND_HOST fo
 DRF-Social-OAuth2: https://github.com/RealmTeam/django-rest-framework-social-oauth2
 Django-Rest-Auth: https://django-rest-auth.readthedocs.io/en/latest/api_endpoints.html
 Guide on custom implementation of auth endpoints: useful reference: https://gist.github.com/dgilge/dbe9260208aadee535cef7c412a1162e#file-02_adapter-py
+
+DRF-Firebase-Auth https://github.com/garyburgmann/drf-firebase-auth
+Now using this as my main authentication backend. I had to create my own custom subclass of it (bugtracking.users.auth.CustomFirebaseAuthentication) to fix a deprecated error call.
+Basic usage is simple: get the Firebase auth user: auth.currentUser.accessToken or currentUser.getIdToken() and pass that as the authorization header, prefixed by JWT, e.g.,
+"Authorization: JWT <token>"
+It will get or create a Django user object.
+Used the quickstart to fire up a frontend to test it with: https://github.com/firebase/quickstart-js/blob/master/auth/README.md
+Have to link the package to credentials in settings. Credentials are stored as JSON file and should be kept secret.
+Link to generating credentials can be found in the quickstart readme above, or here: https://console.firebase.google.com/u/0/project/bugtracking-api-auth/settings/serviceaccounts/adminsdk
