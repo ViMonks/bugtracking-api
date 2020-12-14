@@ -26,3 +26,4 @@ See settings.CUSTOM_ACCOUNT_CONFIRMATION_EMAIL_URL and settings.FRONTEND_HOST fo
 
 DRF-Social-OAuth2: https://github.com/RealmTeam/django-rest-framework-social-oauth2
 Django-Rest-Auth: https://django-rest-auth.readthedocs.io/en/latest/api_endpoints.html
+Guide on custom implementation of auth endpoints: useful reference: https://gist.github.com/dgilge/dbe9260208aadee535cef7c412a1162e#file-02_adapter-py

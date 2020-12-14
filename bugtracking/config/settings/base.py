@@ -77,6 +77,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_social_oauth2",
     "rest_auth",
     "rest_auth.registration",
+    "drf_firebase_auth",
 ]
 
 LOCAL_APPS = [
@@ -288,10 +289,10 @@ FRONTEND_HOST = "https://FRONTEND.com" # usage also here: https://github.com/Tiv
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
-        "rest_framework_social_oauth2.authentication.SocialAuthentication",
+        "drf_firebase_auth.authentication.FirebaseAuthentication",
+        # "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
+        # "rest_framework_social_oauth2.authentication.SocialAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        # "bugtracking.users.utils.BearerAuthentication",
         # "rest_framework.authentication.TokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAdminUser",),
@@ -311,3 +312,19 @@ SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = [
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
 ]
+
+DRF_FIREBASE_AUTH = {
+    # path to JSON file with firebase secrets
+    'FIREBASE_SERVICE_ACCOUNT_KEY': '',
+    # allow creation of new local user in db
+    'FIREBASE_CREATE_LOCAL_USER': True,
+    # attempt to split firebase user.display_name and set local user
+    # first_name and last_name
+    'FIREBASE_ATTEMPT_CREATE_WITH_DISPLAY_NAME': True,
+    # commonly JWT or Bearer (e.g. JWT <token>)
+    'FIREBASE_AUTH_HEADER_PREFIX': 'JWT',
+    # verify that JWT has not been revoked
+    'FIREBASE_CHECK_JWT_REVOKED': True,
+    # require that firebase user.email_verified is True
+    'FIREBASE_AUTH_EMAIL_VERIFICATION': True
+}
