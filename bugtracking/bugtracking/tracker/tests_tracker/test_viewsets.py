@@ -12,13 +12,14 @@ import pytest
 from model_bakery import baker
 from model_bakery.recipe import related
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIRequestFactory, force_authenticate
 
 # my internal imports
 from bugtracking.users.models import User
 from bugtracking.tracker.models import (
     Team, TeamMembership, Project, ProjectMembership, Ticket, Comment, TeamInvitation
 )
+from bugtracking.tracker import views
 from .factories import model_setup as fac
 
 
@@ -54,7 +55,7 @@ class TestTeamViewSet(APITestCase):
     def test_list_admin(self):
         """Can view."""
         url = reverse('api:teams-list')
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert response.data[0]['title'] == 'team_title'
         assert len(response.data) == 1
@@ -63,7 +64,7 @@ class TestTeamViewSet(APITestCase):
     def test_list_member(self):
         """Can view."""
         url = reverse('api:teams-list')
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.get(url)
         assert response.data[0]['title'] == 'team_title'
         assert len(response.data) == 1
@@ -72,7 +73,7 @@ class TestTeamViewSet(APITestCase):
     def test_list_nonmember(self):
         """Cannot view."""
         url = reverse('api:teams-list')
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert len(response.data) == 0
         assert response.status_code == status.HTTP_200_OK
@@ -86,7 +87,7 @@ class TestTeamViewSet(APITestCase):
     def test_retrieve_admin(self):
         """Can view."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert response.data['title'] == 'team_title'
         assert response.status_code == status.HTTP_200_OK
@@ -94,7 +95,7 @@ class TestTeamViewSet(APITestCase):
     def test_retrieve_member(self):
         """Can view."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.get(url)
         assert response.data['title'] == 'team_title'
         assert response.status_code == status.HTTP_200_OK
@@ -102,7 +103,7 @@ class TestTeamViewSet(APITestCase):
     def test_retrieve_nonmember(self):
         """Cannot view."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -115,7 +116,7 @@ class TestTeamViewSet(APITestCase):
     def test_post_admin(self):
         """Can create."""
         url = reverse('api:teams-list')
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Team.objects.all().count() == 2
@@ -125,7 +126,7 @@ class TestTeamViewSet(APITestCase):
     def test_post_nonmember(self):
         """Can create."""
         url = reverse('api:teams-list')
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Team.objects.all().count() == 2
@@ -143,7 +144,7 @@ class TestTeamViewSet(APITestCase):
         """Can put."""
         old_title = self.team.title
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
         self.team.refresh_from_db()
@@ -156,7 +157,7 @@ class TestTeamViewSet(APITestCase):
     def test_put_member(self):
         """Cannot put."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.team.refresh_from_db()
@@ -167,7 +168,7 @@ class TestTeamViewSet(APITestCase):
     def test_put_nonmember(self):
         """Cannot put."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_404_NOT_FOUND
         self.team.refresh_from_db()
@@ -178,7 +179,7 @@ class TestTeamViewSet(APITestCase):
     def test_patch_admin(self):
         """Can patch."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.patch(url, {'description': 'patch desc'})
         assert response.status_code == status.HTTP_200_OK
         self.team.refresh_from_db()
@@ -190,7 +191,7 @@ class TestTeamViewSet(APITestCase):
     def test_patch_member(self):
         """Cannot patch."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.patch(url, {'description': 'patch desc'})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.team.refresh_from_db()
@@ -201,7 +202,7 @@ class TestTeamViewSet(APITestCase):
     def test_patch_nonmember(self):
         """Cannot patch."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.patch(url, {'description': 'patch desc'})
         assert response.status_code == status.HTTP_404_NOT_FOUND
         self.team.refresh_from_db()
@@ -212,7 +213,7 @@ class TestTeamViewSet(APITestCase):
     def test_delete(self):
         """Teams cannot be deleted."""
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Team.objects.all().count() == 1
@@ -220,7 +221,7 @@ class TestTeamViewSet(APITestCase):
     def test_title_cannot_be_updated(self):
         assert self.team.title == 'team_title'
         url = reverse('api:teams-detail', kwargs={'slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.patch(url, {'title': 'updated title'})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.team.refresh_from_db()
@@ -252,7 +253,7 @@ class TestProjectViewSet(APITestCase):
     def test_list_admin(self):
         """Can view."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data[0]['title'] == self.project.title
@@ -261,7 +262,7 @@ class TestProjectViewSet(APITestCase):
     def test_list_manager(self):
         """Can view."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data[0]['title'] == self.project.title
@@ -270,7 +271,7 @@ class TestProjectViewSet(APITestCase):
     def test_list_member(self):
         """Can view."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data[0]['title'] == self.project.title
@@ -279,7 +280,7 @@ class TestProjectViewSet(APITestCase):
     def test_list_team_member(self):
         """Can view list, but project is not on it."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 0
@@ -287,7 +288,7 @@ class TestProjectViewSet(APITestCase):
     def test_list_nonmember(self):
         """Cannot view."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -300,7 +301,7 @@ class TestProjectViewSet(APITestCase):
     def test_retrieve_admin(self):
         """Can view."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['title'] == self.project.title
@@ -308,7 +309,7 @@ class TestProjectViewSet(APITestCase):
     def test_retrieve_manager(self):
         """Can view."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['title'] == self.project.title
@@ -316,7 +317,7 @@ class TestProjectViewSet(APITestCase):
     def test_retrieve_member(self):
         """Can view."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['title'] == self.project.title
@@ -324,28 +325,28 @@ class TestProjectViewSet(APITestCase):
     def test_retrieve_team_member(self):
         """Cannot view."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_retrieve_nonmember(self):
         """Cannot view."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_retrieve_anon(self):
         """Cannot view."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_post_admin(self):
         """Can create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Project.objects.all().count() == 2
@@ -355,7 +356,7 @@ class TestProjectViewSet(APITestCase):
     def test_post_new_with_manager_assigned(self):
         """Can create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         self.post_data['manager'] = 'manager'
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
@@ -367,7 +368,7 @@ class TestProjectViewSet(APITestCase):
     def test_post_manager(self):
         """Cannot create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -375,7 +376,7 @@ class TestProjectViewSet(APITestCase):
     def test_post_member(self):
         """Cannot create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -383,7 +384,7 @@ class TestProjectViewSet(APITestCase):
     def test_post_team_member(self):
         """Cannot create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -391,7 +392,7 @@ class TestProjectViewSet(APITestCase):
     def test_post_nonmember(self):
         """Cannot create."""
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -407,7 +408,7 @@ class TestProjectViewSet(APITestCase):
         """Can put."""
         assert self.project.is_archived == False
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
         self.project.refresh_from_db()
@@ -419,7 +420,7 @@ class TestProjectViewSet(APITestCase):
         """Can put."""
         assert self.project.is_archived == False
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
         self.project.refresh_from_db()
@@ -430,7 +431,7 @@ class TestProjectViewSet(APITestCase):
     def test_put_member(self):
         """Cannot put."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -441,7 +442,7 @@ class TestProjectViewSet(APITestCase):
     def test_put_team_member(self):
         """Cannot put."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert Project.objects.all().count() == 1
@@ -452,7 +453,7 @@ class TestProjectViewSet(APITestCase):
     def test_put_nonmember(self):
         """Cannot put."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -473,7 +474,7 @@ class TestProjectViewSet(APITestCase):
     def test_patch_admin(self):
         """Can patch."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.patch(url, {'title': 'patch title', 'description': 'patch desc'})
         assert response.status_code == status.HTTP_200_OK
         self.project.refresh_from_db()
@@ -483,7 +484,7 @@ class TestProjectViewSet(APITestCase):
     def test_patch_manager(self):
         """Can patch."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.patch(url, {'title': 'patch title', 'description': 'patch desc'})
         assert response.status_code == status.HTTP_200_OK
         self.project.refresh_from_db()
@@ -493,7 +494,7 @@ class TestProjectViewSet(APITestCase):
     def test_patch_member(self):
         """Cannot patch."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.patch(url, {'title': 'patch title', 'description': 'patch desc'})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.project.refresh_from_db()
@@ -503,7 +504,7 @@ class TestProjectViewSet(APITestCase):
     def test_patch_team_member(self):
         """Cannot patch."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.patch(url, {'title': 'patch title', 'description': 'patch desc'})
         assert response.status_code == status.HTTP_404_NOT_FOUND
         self.project.refresh_from_db()
@@ -513,7 +514,7 @@ class TestProjectViewSet(APITestCase):
     def test_patch_nonmember(self):
         """Cannot patch."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.patch(url, {'title': 'patch title', 'description': 'patch desc'})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.project.refresh_from_db()
@@ -523,7 +524,7 @@ class TestProjectViewSet(APITestCase):
     def test_admin_delete(self):
         """Can delete."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert Project.objects.all().count() == 0
@@ -531,7 +532,7 @@ class TestProjectViewSet(APITestCase):
     def test_manager_delete(self):
         """Can delete."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert Project.objects.all().count() == 0
@@ -539,7 +540,7 @@ class TestProjectViewSet(APITestCase):
     def test_member_delete(self):
         """Cannot delete."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.member)
+        self.client.force_authenticate(self.member)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -547,7 +548,7 @@ class TestProjectViewSet(APITestCase):
     def test_team_member_delete(self):
         """Cannot delete."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert Project.objects.all().count() == 1
@@ -555,7 +556,7 @@ class TestProjectViewSet(APITestCase):
     def test_nonmember_delete(self):
         """Cannot delete."""
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Project.objects.all().count() == 1
@@ -568,7 +569,7 @@ class TestProjectViewSet(APITestCase):
         new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
         assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.patch(url, {"manager": "member"})
         assert response.status_code == status.HTTP_200_OK
         self.project.refresh_from_db()
@@ -586,7 +587,7 @@ class TestProjectViewSet(APITestCase):
         new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
         assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         self.put_data['manager'] = "member"
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
@@ -605,7 +606,7 @@ class TestProjectViewSet(APITestCase):
         new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
         assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         self.put_data['manager'] = "member"
         response = self.client.patch(url, {"manager": "member"})
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -625,7 +626,7 @@ class TestProjectViewSet(APITestCase):
         new_manager_membership = ProjectMembership.objects.get(user=self.member, project=self.project)
         assert new_manager_membership.role == ProjectMembership.Roles.DEVELOPER
         url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         self.put_data['manager'] = "member"
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -641,7 +642,7 @@ class TestProjectViewSet(APITestCase):
         new_project = baker.make(Project, team=self.team)
         other_team_project = baker.make(Project)
         url = reverse('api:projects-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert len(response.data) ==  2
         assert response.data[0]['title'] == 'project_title'
@@ -680,7 +681,7 @@ class TestTicketViewSet(APITestCase):
     def test_list_admin(self):
         """Can view."""
         url = reverse('api:tickets-list', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data[0]['title'] == self.ticket.title
@@ -689,7 +690,7 @@ class TestTicketViewSet(APITestCase):
     def test_list_manager(self):
         """Can view."""
         url = reverse('api:tickets-list', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data[0]['title'] == self.ticket.title
@@ -698,7 +699,7 @@ class TestTicketViewSet(APITestCase):
     def test_list_team_member(self):
         """Cannot view."""
         url = reverse('api:tickets-list', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert len(response.data) == 1
@@ -706,7 +707,7 @@ class TestTicketViewSet(APITestCase):
     def test_list_nonmember(self):
         """Cannot view."""
         url = reverse('api:tickets-list', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert len(response.data) == 1
@@ -715,7 +716,7 @@ class TestTicketViewSet(APITestCase):
         """Can view."""
         url = reverse('api:tickets-detail',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['title'] == self.ticket.title
@@ -724,7 +725,7 @@ class TestTicketViewSet(APITestCase):
         """Can view."""
         url = reverse('api:tickets-detail',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
-        self.client.force_login(self.manager)
+        self.client.force_authenticate(self.manager)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['title'] == self.ticket.title
@@ -733,7 +734,7 @@ class TestTicketViewSet(APITestCase):
         """Cannot view."""
         url = reverse('api:tickets-detail',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
-        self.client.force_login(self.team_member)
+        self.client.force_authenticate(self.team_member)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -741,7 +742,7 @@ class TestTicketViewSet(APITestCase):
         """Cannot view."""
         url = reverse('api:tickets-detail',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
-        self.client.force_login(self.nonmember)
+        self.client.force_authenticate(self.nonmember)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -749,7 +750,7 @@ class TestTicketViewSet(APITestCase):
         """Can post."""
         url = reverse('api:tickets-list', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
         user = self.admin
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Ticket.objects.all().count() == 2
@@ -762,7 +763,7 @@ class TestTicketViewSet(APITestCase):
         url = reverse('api:tickets-list',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
         user = self.manager
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Ticket.objects.all().count() == 2
@@ -775,7 +776,7 @@ class TestTicketViewSet(APITestCase):
         url = reverse('api:tickets-list',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
         user = self.member
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
         assert Ticket.objects.all().count() == 2
@@ -788,7 +789,7 @@ class TestTicketViewSet(APITestCase):
         url = reverse('api:tickets-list',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
         user = self.team_member
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Ticket.objects.all().count() == 1
@@ -798,7 +799,7 @@ class TestTicketViewSet(APITestCase):
         url = reverse('api:tickets-list',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
         user = self.nonmember
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Ticket.objects.all().count() == 1
@@ -807,7 +808,7 @@ class TestTicketViewSet(APITestCase):
         url = reverse('api:tickets-list',
                       kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug})
         user = self.admin
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         self.post_data['developer'] = 'developer'
         response = self.client.post(url, self.post_data)
         assert response.status_code == status.HTTP_201_CREATED
@@ -822,7 +823,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.admin
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.title == 'ticket_title'
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
@@ -837,7 +838,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.manager
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.title == 'ticket_title'
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
@@ -852,7 +853,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.developer
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.title == 'ticket_title'
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_200_OK
@@ -867,7 +868,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.member
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.title == 'ticket_title'
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -882,7 +883,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.team_member
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.title == 'ticket_title'
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -897,7 +898,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.nonmember
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.title == 'ticket_title'
         response = self.client.put(url, self.put_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -912,7 +913,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.admin
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.priority == 1
         response = self.client.patch(url, self.patch_data)
         assert response.status_code == status.HTTP_200_OK
@@ -927,7 +928,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.manager
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.priority == 1
         response = self.client.patch(url, self.patch_data)
         assert response.status_code == status.HTTP_200_OK
@@ -942,7 +943,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.developer
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.priority == 1
         response = self.client.patch(url, self.patch_data)
         assert response.status_code == status.HTTP_200_OK
@@ -957,7 +958,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.member
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.priority == 1
         response = self.client.patch(url, self.patch_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -972,7 +973,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.team_member
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.priority == 1
         response = self.client.patch(url, self.patch_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -987,7 +988,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.nonmember
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.priority == 1
         response = self.client.patch(url, self.patch_data)
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -1002,7 +1003,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.admin
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert Ticket.objects.count() == 0
@@ -1015,7 +1016,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.manager
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert Ticket.objects.count() == 0
@@ -1028,7 +1029,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.developer
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert Ticket.objects.count() == 1
@@ -1041,7 +1042,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.admin
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.developer == self.developer
         response = self.client.patch(url, {'developer': user.username})
         assert response.status_code == status.HTTP_200_OK
@@ -1056,7 +1057,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.manager
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.developer == self.developer
         response = self.client.patch(url, {'developer': user.username})
         assert response.status_code == status.HTTP_200_OK
@@ -1071,7 +1072,7 @@ class TestTicketViewSet(APITestCase):
             'slug': self.ticket.slug
         })
         user = self.developer
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         assert self.ticket.developer == self.developer
         response = self.client.patch(url, {'developer': 'admin'})
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -1116,7 +1117,7 @@ class TestTicketViewSet(APITestCase):
         self.team.refresh_from_db()
         assert len(self.team.projects.all()) == 2
         url = reverse('api:tickets-list', kwargs={'team_slug': self.team.slug, 'project_slug': self.project.slug})
-        self.client.force_login(self.admin)
+        self.client.force_authenticate(self.admin)
         response = self.client.get(url)
         assert len(response.data) == 1
         assert response.data[0]['title'] != other_team_ticket.title
@@ -1137,7 +1138,7 @@ class TestTeamInvitationViewSet(APITestCase):
         second_invite = baker.make(TeamInvitation, team=self.team)
         other_team_invite = baker.make(TeamInvitation)
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 2
@@ -1151,7 +1152,7 @@ class TestTeamInvitationViewSet(APITestCase):
         second_invite = baker.make(TeamInvitation, team=self.team)
         other_team_invite = baker.make(TeamInvitation)
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert len(response.data) == 1
@@ -1162,7 +1163,7 @@ class TestTeamInvitationViewSet(APITestCase):
         user = self.admin
         invite = baker.make(TeamInvitation, team=self.team)
         url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['id'] == str(invite.id)
@@ -1172,7 +1173,7 @@ class TestTeamInvitationViewSet(APITestCase):
         user = self.member
         invite = baker.make(TeamInvitation, team=self.team)
         url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert str(response.data['errors']) == "Only a team administrator may view or manage team invitations."
@@ -1181,7 +1182,7 @@ class TestTeamInvitationViewSet(APITestCase):
         """Can post. Creates new invitation tied to the team identified in the url."""
         user = self.admin
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'invitee_email': 'test@email.com'})
         assert response.status_code == status.HTTP_201_CREATED
         invitation = TeamInvitation.objects.last()
@@ -1193,7 +1194,7 @@ class TestTeamInvitationViewSet(APITestCase):
         """Cannot post."""
         user = self.member
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'invitee_email': 'test@email.com'})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert TeamInvitation.objects.count() == 0
@@ -1204,7 +1205,7 @@ class TestTeamInvitationViewSet(APITestCase):
         user = self.admin
         invite = baker.make(TeamInvitation, team=self.team)
         url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert TeamInvitation.objects.count() == 0
@@ -1214,7 +1215,7 @@ class TestTeamInvitationViewSet(APITestCase):
         user = self.member
         invite = baker.make(TeamInvitation, team=self.team)
         url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.delete(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert TeamInvitation.objects.count() == 1
@@ -1224,7 +1225,7 @@ class TestTeamInvitationViewSet(APITestCase):
         user = self.admin
         invite = baker.make(TeamInvitation, team=self.team)
         url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.put(url, {'invitee_email': 'updated@email.com'})
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
         assert invite.invitee_email != 'updated@email.com'
@@ -1234,7 +1235,7 @@ class TestTeamInvitationViewSet(APITestCase):
         user = self.admin
         invite = baker.make(TeamInvitation, team=self.team)
         url = reverse('api:invitations-detail', kwargs={'team_slug': self.team.slug, 'id': str(invite.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.patch(url, {'invitee_email': 'updated@email.com'})
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
         assert invite.invitee_email != 'updated@email.com'
@@ -1246,7 +1247,7 @@ class TestTeamInvitationViewSet(APITestCase):
         self.member.save()
         user = self.admin
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'invitee_email': self.member.email})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert TeamInvitation.objects.count() == number_of_invitations
@@ -1259,7 +1260,7 @@ class TestTeamInvitationViewSet(APITestCase):
         assert TeamInvitation.objects.count() == 1
         email = invite.invitee_email
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'invitee_email': email})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert TeamInvitation.objects.count() == 1
@@ -1277,7 +1278,7 @@ class TestInvitationEmailSending(APITestCase):
         """Tests that email is sent, as well as email's details."""
         user = self.admin
         url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'invitee_email': 'test@email.com'})
         assert len(mail.outbox) == 1
         email = mail.outbox[0]
@@ -1289,7 +1290,7 @@ class TestInvitationEmailSending(APITestCase):
         user = self.admin
         invitation = baker.make(TeamInvitation, team=self.team, inviter=self.admin)
         url = reverse('api:invitations-resend-email', kwargs={'team_slug': self.team.slug, 'id': str(invitation.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['status'] == 'Invitation email sent successfully.'
@@ -1303,7 +1304,7 @@ class TestInvitationEmailSending(APITestCase):
         user = self.member
         invitation = baker.make(TeamInvitation, team=self.team, inviter=self.admin)
         url = reverse('api:invitations-resend-email', kwargs={'team_slug': self.team.slug, 'id': str(invitation.id)})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert len(mail.outbox) == 0
@@ -1323,7 +1324,7 @@ class TestAcceptInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['status'] == 'Invitation accepted.'
@@ -1337,7 +1338,7 @@ class TestAcceptInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': 'invalid'})}?invitation={str(self.invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1351,7 +1352,7 @@ class TestAcceptInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation=invalid"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1367,7 +1368,7 @@ class TestAcceptInvitation(APITestCase):
         user.save()
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1382,7 +1383,7 @@ class TestAcceptInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-accept-invitation', kwargs={'slug': self.team.slug})}?invitation={str(other_invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1415,7 +1416,7 @@ class TestDeclineInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['status'] == 'Invitation declined.'
@@ -1429,7 +1430,7 @@ class TestDeclineInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': 'invalid'})}?invitation={str(self.invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1443,7 +1444,7 @@ class TestDeclineInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation=invalid"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1459,7 +1460,7 @@ class TestDeclineInvitation(APITestCase):
         user.save()
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1474,7 +1475,7 @@ class TestDeclineInvitation(APITestCase):
         user = self.invitee
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(other_invitation.id)}"
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Invitation not found.'
@@ -1505,7 +1506,7 @@ class TestChangingTeamAdmins(APITestCase):
         self.team.make_admin(self.member)
         user = self.admin
         url = reverse('api:teams-step-down-as-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         assert response.data['status'] == 'You have successfully stepped down as team admin.'
@@ -1515,7 +1516,7 @@ class TestChangingTeamAdmins(APITestCase):
     def test_member_gets_permission_denied(self):
         user = self.member
         url = reverse('api:teams-step-down-as-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert response.data['errors'] == 'Only team administrators may perform that action.'
@@ -1525,7 +1526,7 @@ class TestChangingTeamAdmins(APITestCase):
     def test_admin_cannot_step_down_if_only_one_admin(self):
         user = self.admin
         url = reverse('api:teams-step-down-as-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.get(url)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'You cannot step down as team administrator if you are the only administration. Pleasea promote another member to administrator first.'
@@ -1536,7 +1537,7 @@ class TestChangingTeamAdmins(APITestCase):
         assert self.member not in self.team.get_admins()
         user = self.admin
         url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'user': self.member.username})
         assert response.status_code == status.HTTP_200_OK
         assert response.data['status'] == 'Member successfully promoted to administrator.'
@@ -1547,7 +1548,7 @@ class TestChangingTeamAdmins(APITestCase):
     def test_non_admin_cant_promote_admin(self):
         user = self.member
         url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'user': self.member.username})
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert response.data['errors'] == 'Only team administrators may perform that action.'
@@ -1558,7 +1559,7 @@ class TestChangingTeamAdmins(APITestCase):
     def test_promoting_nonexistent_user_fails(self):
         user = self.admin
         url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'user': 'user_does_not_exist'})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'User does not exist.'
@@ -1569,7 +1570,7 @@ class TestChangingTeamAdmins(APITestCase):
     def test_promoting_user_who_is_not_team_member_fails(self):
         user = self.admin
         url = reverse('api:teams-promote-admin', kwargs={'slug': self.team.slug})
-        self.client.force_login(user)
+        self.client.force_authenticate(user)
         response = self.client.post(url, {'user': self.nonmember.username})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert response.data['errors'] == 'Cannot make user an admin. User is not a member of your team.'
