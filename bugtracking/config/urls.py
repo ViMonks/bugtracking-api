@@ -40,7 +40,7 @@ urlpatterns += [
     path('password-reset/confirm/<uidb64>/<token>/',
         TemplateView.as_view(template_name="password_reset_confirm.html"),
         name='password_reset_confirm'),
-]
+] # TODO: remove all the auth-related URLs (and auth settings for that matter) that aren't being used anymore if I'm sticking with Firebase auth
 
 if settings.DEBUG:
     # This allows the error pages to be debugged during development, just visit

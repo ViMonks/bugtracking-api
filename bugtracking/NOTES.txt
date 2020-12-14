@@ -36,3 +36,4 @@ It will get or create a Django user object.
 Used the quickstart to fire up a frontend to test it with: https://github.com/firebase/quickstart-js/blob/master/auth/README.md
 Have to link the package to credentials in settings. Credentials are stored as JSON file and should be kept secret.
 Link to generating credentials can be found in the quickstart readme above, or here: https://console.firebase.google.com/u/0/project/bugtracking-api-auth/settings/serviceaccounts/adminsdk
+Still need to ultimately decide on an auth scheme and remove the baggage from the old stuff.
