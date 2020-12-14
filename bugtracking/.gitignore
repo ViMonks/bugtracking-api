@@ -335,3 +335,4 @@ bugtracking/.envs/
 
 !.envs/.local/
 
+/config/bugtracking-api-auth-firebase-adminsdk-6egb1-a1f025fc29.json
