@@ -158,13 +158,27 @@ class DeveloperSlugField(serializers.SlugRelatedField):
             return User.objects.all()
 
 
+class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.SlugRelatedField(slug_field='username', read_only=True)
+    ticket = serializers.SlugRelatedField(slug_field='slug', read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ['user', 'ticket', 'text', 'created']
+        read_only_fields = ['user', 'created',]
+
+    def create(self, validated_data):
+        return Comment.objects.create_new(**validated_data)
+
+
 class TicketSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     developer = DeveloperSlugField(slug_field='username', required=False, allow_null=True)
+    comments = CommentSerializer(read_only=True, many=True)
 
     class Meta:
         model = Ticket
-        fields = ['title', 'slug', 'description', 'priority', 'user', 'project', 'resolution', 'developer', 'is_open', 'created', 'modified', 'url',]
+        fields = ['title', 'slug', 'description', 'priority', 'user', 'project', 'resolution', 'developer', 'is_open', 'created', 'modified', 'url', 'comments',]
         read_only_fields = ['slug', 'user', 'project', 'created', 'modified', 'url',]
 
     def get_url(self, ticket): # speculative so far; don't know how the nested routers will work

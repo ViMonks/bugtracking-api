@@ -220,3 +220,21 @@ class TicketViewSet(viewsets.ModelViewSet):
         project_slug = self.kwargs['project_slug']
         project = Project.objects.get(slug=project_slug, team=team)
         serializer.save(project=project, user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def create_comment(self, request, **kwargs):
+        ticket = self.get_object()
+        data = request.data
+        user = request.user
+        ticket = ticket
+        serializer = serializers.CommentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(user=user, ticket=ticket)
+            return Response({'status': 'Comment created.'})
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CommentViewset(viewsets.ModelViewSet):
+    serializer_class = serializers.CommentSerializer
+    permission_classes = [IsAuthenticated, ]

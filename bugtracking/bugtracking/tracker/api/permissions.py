@@ -6,7 +6,7 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 # my internal imports
-from ..models import Team, Project
+from ..models import Team, Project, Ticket
 
 class TeamPermissions(BasePermission):
     """
@@ -154,3 +154,14 @@ class TicketPermissions(BasePermission):
         if request.method == 'DELETE':
             return obj.can_user_delete(request.user)
         return obj.can_user_edit(request.user)
+
+
+class CommentPermissions(BasePermission):
+    """
+    All project members and the ticket's creator (if not a project member) may view and submit comments.
+    The comment submitter and team admins may delete or edit comments.
+    """
+    message = {'errors': 'Permission denied.'}
+
+    def has_permission(self, request, view):
+        ticket = Ticket.objects.get()

@@ -108,6 +108,18 @@ class TicketManager(models.Manager):
         return super().create(*args, **kwargs)
 
 
+class CommentManager(models.Manager):
+    def create_new(self, *args, **kwargs):
+        if 'ticket' not in kwargs or not isinstance(kwargs['ticket'], Ticket):
+            raise ValidationError(_('Ticket argument must be provided and must be a Ticket object.'))
+        ticket = kwargs['ticket']
+        if 'user' not in kwargs or not isinstance(kwargs['user'], get_user_model()):
+            raise ValidationError(_('User argument must be provided and must be a User object.'))
+        user = kwargs['user']
+        if not ticket.can_user_view(user):
+            raise PermissionDenied(_('Only team admins and project members may comment on a ticket.'))
+        return super().create(*args, **kwargs)
+
 
 # CUSTOM QUERYSETS
 
@@ -460,6 +472,8 @@ class Comment(TimeStampedModel, models.Model):
     text = models.TextField()
     ticket = models.ForeignKey(Ticket, related_name='comments', on_delete=models.CASCADE)
     # the `TimeStampedModel` implements created and modified fields
+
+    objects = CommentManager()
 
     class Meta:
         ordering = ['-created']
