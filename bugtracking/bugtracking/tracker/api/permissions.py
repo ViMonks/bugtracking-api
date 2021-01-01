@@ -164,4 +164,8 @@ class CommentPermissions(BasePermission):
     message = {'errors': 'Permission denied.'}
 
     def has_permission(self, request, view):
-        ticket = Ticket.objects.get()
+        ticket = Ticket.objects.get(slug=view.kwargs['slug'])
+        return ticket.can_user_view(request.user)
+
+    def has_object_permission(self, request, view, obj):
+        return obj.can_user_view(request.user)

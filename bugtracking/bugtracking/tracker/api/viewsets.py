@@ -221,7 +221,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         project = Project.objects.get(slug=project_slug, team=team)
         serializer.save(project=project, user=self.request.user)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, permissions.CommentPermissions])
     def create_comment(self, request, **kwargs):
         ticket = self.get_object()
         data = request.data
@@ -230,7 +230,7 @@ class TicketViewSet(viewsets.ModelViewSet):
         serializer = serializers.CommentSerializer(data=data)
         if serializer.is_valid():
             serializer.save(user=user, ticket=ticket)
-            return Response({'status': 'Comment created.'})
+            return Response({'status': 'Comment created.'}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

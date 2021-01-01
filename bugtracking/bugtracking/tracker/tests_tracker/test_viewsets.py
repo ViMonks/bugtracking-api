@@ -1577,3 +1577,60 @@ class TestChangingTeamAdmins(APITestCase):
         self.team.refresh_from_db()
         assert self.admin in self.team.get_admins()
         assert self.nonmember not in self.team.get_admins()
+
+
+class TestPostingComments(APITestCase):
+    def setUp(self) -> None:
+        base = fac()
+        self.member = base['member']
+        self.nonmember = base['nonmember']
+        self.team = base['team']
+        self.project = base['project']
+        self.project.add_member(self.member)
+        self.team_member = user('team_member')
+        self.team.add_member(self.team_member)
+        self.ticket = base['ticket']
+        self.post_data = {
+            'text': 'New comment'
+        }
+
+    def test_post_member(self):
+        """Can post."""
+        assert len(self.ticket.comments.all()) == 0
+        user = self.member
+        url = reverse('api:tickets-create-comment', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.post(url, data=self.post_data)
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data == {'status': 'Comment created.'}
+        assert len(self.ticket.comments.all()) == 1
+
+    def test_post_nonmember(self):
+        """Cannot post."""
+        assert len(self.ticket.comments.all()) == 0
+        user = self.nonmember
+        url = reverse('api:tickets-create-comment', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.post(url, data=self.post_data)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert len(self.ticket.comments.all()) == 0
+
+    def test_post_team_member(self):
+        """Cannot post. User is a member of the team but not the project."""
+        assert len(self.ticket.comments.all()) == 0
+        user = self.team_member
+        url = reverse('api:tickets-create-comment', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.post(url, data=self.post_data)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert len(self.ticket.comments.all()) == 0
+
+    def test_post_with_missing_text(self):
+        """Cannot post. Text is required."""
+        assert len(self.ticket.comments.all()) == 0
+        user = self.member
+        url = reverse('api:tickets-create-comment', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.post(url, data={'text': ''})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert len(self.ticket.comments.all()) == 0
