@@ -1634,3 +1634,144 @@ class TestPostingComments(APITestCase):
         response = self.client.post(url, data={'text': ''})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert len(self.ticket.comments.all()) == 0
+
+class TestTicketPermissionsEndpoint(APITestCase):
+    def setUp(self) -> None:
+        base = fac()
+        self.admin = base['admin']
+        self.member = base['member']
+        self.team = base['team']
+        self.project = base['project']
+        self.ticket = base['ticket']
+
+    def test_response_status(self):
+        """Tests the response status code."""
+        user = self.member
+        url = reverse('api:tickets-get-user-permissions', kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug, 'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_response_content_exists(self):
+        """Tests that the appropriate keys, representing the different permissions, exist in the response."""
+        user = self.member
+        url = reverse('api:tickets-get-user-permissions',
+                      kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug,
+                              'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.get(url)
+        keys = response.data.keys()
+        assert 'view' in keys
+        assert 'edit' in keys
+        assert 'delete' in keys
+        assert 'change_developer' in keys
+        assert 'close' in keys
+
+    def test_response_content_accurate_for_member(self):
+        """
+        Tests that the response content accurately reflects the user's permissions.
+        User is a project member, so user should be able to view, but nothing else.
+        """
+        user = self.member
+        url = reverse('api:tickets-get-user-permissions',
+                      kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug,
+                              'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.get(url)
+        data = response.data
+        assert data['view'] == True
+        assert data['edit'] == False
+        assert data['delete'] == False
+        assert data['change_developer'] == False
+        assert data['close'] == False
+
+    def test_response_content_accurate_for_admin(self):
+        """
+        Tests that the response content accurately reflects the user's permissions.
+        User is a team admin, so all permissions should be true.
+        """
+        user = self.admin
+        url = reverse('api:tickets-get-user-permissions',
+                      kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug,
+                              'slug': self.ticket.slug})
+        self.client.force_authenticate(user)
+        response = self.client.get(url)
+        data = response.data
+        assert data['view'] == True
+        assert data['edit'] == True
+        assert data['delete'] == True
+        assert data['change_developer'] == True
+        assert data['close'] == True
+
+    def test_anon_user_gets_401(self):
+        """Tests the response status code."""
+        url = reverse('api:tickets-get-user-permissions',
+                      kwargs={'team_slug': self.project.team.slug, 'project_slug': self.project.slug,
+                              'slug': self.ticket.slug})
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+class TestProjectPermissionsEndpoint(APITestCase):
+    def setUp(self) -> None:
+        base = fac()
+        self.admin = base['admin']
+        self.member = base['member']
+        self.nonmember = base['nonmember']
+        self.team = base['team']
+        self.project = base['project']
+        self.project.add_member(self.member)
+        self.team_member = user('team_member')
+        self.team.add_member(self.team_member)
+        self.ticket = base['ticket']
+        self.url = reverse('api:projects-get-user-permissions', kwargs={'team_slug': self.project.team.slug, 'slug': self.project.slug})
+
+    def test_response_status(self):
+        """Tests the response status code."""
+        user = self.member
+        self.client.force_authenticate(user)
+        response = self.client.get(self.url)
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_response_content_exists(self):
+        """Tests that the appropriate keys, representing the different permissions, exist in the response."""
+        user = self.member
+        self.client.force_authenticate(user)
+        response = self.client.get(self.url)
+        keys = response.data.keys()
+        assert 'view' in keys
+        assert 'edit' in keys
+        assert 'update_manager' in keys
+        assert 'create_tickets' in keys
+
+    def test_response_content_accurate_for_member(self):
+        """
+        Tests that the response content accurately reflects the user's permissions.
+        User is a project member, so user should be able to view project details and submit tickets.
+        """
+        user = self.member
+        self.client.force_authenticate(user)
+        response = self.client.get(self.url)
+        data = response.data
+        assert data['view'] == True
+        assert data['edit'] == False
+        assert data['update_manager'] == False
+        assert data['create_tickets'] == True
+
+    def test_response_content_accurate_for_admin(self):
+        """
+        Tests that the response content accurately reflects the user's permissions.
+        User is a team admin, so all permissions should be true.
+        """
+        user = self.admin
+        self.client.force_authenticate(user)
+        response = self.client.get(self.url)
+        data = response.data
+        assert data['view'] == True
+        assert data['edit'] == True
+        assert data['update_manager'] == True
+        assert data['create_tickets'] == True
+
+    def test_anon_user_gets_401(self):
+        """Tests the response status code."""
+        response = self.client.get(self.url)
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED

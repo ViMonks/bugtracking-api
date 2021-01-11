@@ -189,6 +189,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         team = Team.objects.get(slug=team_slug)
         serializer.save(team=team)
 
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def get_user_permissions(self, request, **kwargs):
+        project = self.get_object()
+        user = request.user
+        return Response(project.get_user_project_permissions(user), status=status.HTTP_200_OK)
+
 
 class TicketViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TicketSerializer
@@ -226,13 +232,18 @@ class TicketViewSet(viewsets.ModelViewSet):
         ticket = self.get_object()
         data = request.data
         user = request.user
-        ticket = ticket
         serializer = serializers.CommentSerializer(data=data)
         if serializer.is_valid():
             serializer.save(user=user, ticket=ticket)
             return Response({'status': 'Comment created.'}, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def get_user_permissions(self, request, **kwargs):
+        ticket = self.get_object()
+        user = request.user
+        return Response(ticket.get_user_ticket_permissions(user), status=status.HTTP_200_OK)
 
 
 class CommentViewset(viewsets.ModelViewSet):

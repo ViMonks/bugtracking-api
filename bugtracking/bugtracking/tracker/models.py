@@ -224,6 +224,10 @@ class Team(TitleSlugDescriptionModel, models.Model):
         except ObjectDoesNotExist:
             raise ValidationError(_("Invalid user submitted."))
 
+    def is_user_admin(self, user):
+        """This function is used so that the frontend can identify which permissions a user has and thus which UI elements to display."""
+        return user in self.get_admins()
+
 
 class TeamMembership(TimeStampedModel, models.Model):
     """
@@ -370,6 +374,20 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
     def can_user_create_tickets(self, user):
         return user in self.members.all() or user in self.team.get_admins()
 
+    def get_user_project_permissions(self, user):
+        """This function is used so that the frontend can identify which permissions a user has and thus which UI elements to display."""
+        permissions = {
+            'view': self.can_user_view(user),
+            'edit': self.can_user_edit(user),
+            'update_manager': self.can_user_update_manager(user),
+            'create_tickets': self.can_user_create_tickets(user),
+        }
+        return permissions
+
+    @property
+    def open_tickets(self):
+        return self.tickets.filter(is_open=True).count()
+
 
 class ProjectMembership(TimeStampedModel, models.Model):
     """
@@ -447,6 +465,20 @@ class Ticket(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
 
     def can_user_delete(self, user):
         return user in self.project.team.get_admins() or user == self.project.manager
+
+    def can_user_close(self, user):
+        return self.can_user_edit(user)
+
+    def get_user_ticket_permissions(self, user):
+        """This function is used so that the frontend can identify which permissions a user has and thus which UI elements to display."""
+        permissions = {
+            'view': self.can_user_view(user),
+            'edit': self.can_user_edit(user),
+            'change_developer': self.can_user_change_developer(user),
+            'delete': self.can_user_delete(user),
+            'close': self.can_user_close(user),
+        }
+        return permissions
 
 
 class TicketSubscription(TimeStampedModel, models.Model):

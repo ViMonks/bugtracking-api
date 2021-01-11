@@ -114,13 +114,14 @@ class ProjectSerializer(serializers.ModelSerializer):
     memberships = ProjectMembershipSerializer(read_only=True, many=True)
     team = serializers.SlugRelatedField(slug_field='slug', read_only=True)
     manager = ManagerSlugField(slug_field='username', required=False, allow_null=True)
+    # manager = serializers.StringRelatedField(allow_null=True, required=False)
     url = serializers.SerializerMethodField()
     tickets_list = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
-        fields = ['title', 'slug', 'description', 'team', 'is_archived', 'manager', 'memberships', 'created', 'modified', 'url', 'tickets_list']
-        read_only_fields = ['slug', 'created', 'modified', 'team', 'memberships', 'url', 'tickets_list']
+        fields = ['title', 'slug', 'description', 'team', 'is_archived', 'manager', 'memberships', 'created', 'modified', 'url', 'tickets_list',  'open_tickets',]
+        read_only_fields = ['slug', 'created', 'modified', 'team', 'memberships', 'url', 'tickets_list',  'open_tickets',]
 
     def get_url(self, project):
         request = self.context.get('request', None)
@@ -175,6 +176,7 @@ class TicketSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     developer = DeveloperSlugField(slug_field='username', required=False, allow_null=True)
     comments = CommentSerializer(read_only=True, many=True)
+    user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Ticket
