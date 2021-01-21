@@ -306,6 +306,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:30",
     "http://localhost:100",
     "http://localhost:3000",
+    "http://localhost:8000",
+    "http://localhost:8888"
 ]
 # Your stuff...
 # ------------------------------------------------------------------------------
@@ -332,5 +334,5 @@ DRF_FIREBASE_AUTH = {
     # verify that JWT has not been revoked
     'FIREBASE_CHECK_JWT_REVOKED': True,
     # require that firebase user.email_verified is True
-    'FIREBASE_AUTH_EMAIL_VERIFICATION': True
+    'FIREBASE_AUTH_EMAIL_VERIFICATION': False
 }

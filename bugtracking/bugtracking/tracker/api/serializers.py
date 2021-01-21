@@ -6,6 +6,7 @@ from django.urls import reverse, reverse_lazy
 
 # third party imports
 from rest_framework import serializers
+from rest_framework.fields import CurrentUserDefault
 
 # my internal imports
 from ..models import Team, TeamMembership, Project, ProjectMembership, Ticket, Comment, TeamInvitation
@@ -28,10 +29,11 @@ class TeamCreateRetrieveSerializer(serializers.ModelSerializer):
     memberships = TeamMembershipSerializer(read_only=True, many=True)
     # members = UserSerializer(many=True)
     projects_list = serializers.SerializerMethodField()
+    user_is_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = Team
-        fields = ['title', 'slug', 'description', 'memberships', 'created', 'url', 'projects_list', ]
+        fields = ['title', 'slug', 'description', 'memberships', 'created', 'url', 'projects_list', 'user_is_admin']
         read_only_fields = ['slug', 'created', 'memberships', 'url', 'projects_list', ]
         extra_kwargs = {
             "url": {"view_name": "api:teams-detail", "lookup_field": "slug"},
@@ -41,6 +43,12 @@ class TeamCreateRetrieveSerializer(serializers.ModelSerializer):
         path = reverse('api:projects-list', kwargs={'team_slug': team.slug})
         request = self.context.get('request')
         return request.build_absolute_uri(path)
+
+    def get_user_is_admin(self, team):
+        user = self.context.get('request').user
+        if team.is_user_admin(user):
+            return True
+        return False
 
     def create(self, validated_data):
         return Team.objects.create_new(**validated_data)
@@ -117,10 +125,11 @@ class ProjectSerializer(serializers.ModelSerializer):
     # manager = serializers.StringRelatedField(allow_null=True, required=False)
     url = serializers.SerializerMethodField()
     tickets_list = serializers.SerializerMethodField()
+    user_permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = Project
-        fields = ['title', 'slug', 'description', 'team', 'is_archived', 'manager', 'memberships', 'created', 'modified', 'url', 'tickets_list',  'open_tickets',]
+        fields = ['title', 'slug', 'description', 'team', 'is_archived', 'manager', 'memberships', 'created', 'modified', 'url', 'tickets_list',  'open_tickets', 'user_permissions',]
         read_only_fields = ['slug', 'created', 'modified', 'team', 'memberships', 'url', 'tickets_list',  'open_tickets',]
 
     def get_url(self, project):
@@ -130,6 +139,10 @@ class ProjectSerializer(serializers.ModelSerializer):
             url = request.build_absolute_uri(str(path)) # passing string path because reverse_lazy returns a proxy object
             return url
         return path
+
+    def get_user_permissions(self, project):
+        user = self.context.get('request').user
+        return project.get_user_project_permissions(user)
 
     def get_tickets_list(self, project):
         path = reverse('api:tickets-list', kwargs={'team_slug': project.team.slug, 'project_slug': project.slug})
@@ -177,10 +190,11 @@ class TicketSerializer(serializers.ModelSerializer):
     developer = DeveloperSlugField(slug_field='username', required=False, allow_null=True)
     comments = CommentSerializer(read_only=True, many=True)
     user = serializers.StringRelatedField(read_only=True)
+    user_permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = Ticket
-        fields = ['title', 'slug', 'description', 'priority', 'user', 'project', 'resolution', 'developer', 'is_open', 'created', 'modified', 'url', 'comments',]
+        fields = ['title', 'slug', 'description', 'priority', 'user', 'project', 'resolution', 'developer', 'is_open', 'created', 'modified', 'url', 'comments', 'user_permissions']
         read_only_fields = ['slug', 'user', 'project', 'created', 'modified', 'url',]
 
     def get_url(self, ticket): # speculative so far; don't know how the nested routers will work
@@ -192,6 +206,10 @@ class TicketSerializer(serializers.ModelSerializer):
             url = request.build_absolute_uri(str(path))
             return url
         return path
+
+    def get_user_permissions(self, ticket):
+        user = self.context.get('request').user
+        return ticket.get_user_ticket_permissions(user)
 
     def create(self, validated_data):
         return Ticket.objects.create_new(**validated_data)

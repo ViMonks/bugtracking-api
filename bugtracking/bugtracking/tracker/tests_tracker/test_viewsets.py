@@ -34,6 +34,7 @@ class TestTeamViewSet(APITestCase):
         self.admin = base['admin']
         self.member = base['member']
         self.nonmember = base['nonmember']
+        self.manager = base['manager']
         self.team = base['team']
         self.post_data = {'title': 'new team', 'description': 'description'}
         # put_data includes all fields, but only description should be editable
@@ -226,6 +227,30 @@ class TestTeamViewSet(APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.team.refresh_from_db()
         assert self.team.title == 'team_title'
+
+    def test_removing_member(self):
+        """Team admin can remove members from team."""
+        self.team.add_member(self.nonmember)
+        self.team.refresh_from_db()
+        assert self.nonmember in self.team.members.all()
+        url = reverse('api:teams-remove-member', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_200_OK
+        self.team.refresh_from_db()
+        assert self.nonmember not in self.team.members.all()
+
+    def test_removing_member_manager(self):
+        """Team manager cannot remove members from team."""
+        self.team.add_member(self.nonmember)
+        self.team.refresh_from_db()
+        assert self.nonmember in self.team.members.all()
+        url = reverse('api:teams-remove-member', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.manager)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.team.refresh_from_db()
+        assert self.nonmember in self.team.members.all()
 
 
 # Project ViewSet
@@ -647,6 +672,91 @@ class TestProjectViewSet(APITestCase):
         assert len(response.data) ==  2
         assert response.data[0]['title'] == 'project_title'
         assert response.data[1]['title'] == new_project.title
+
+    def test_adding_new_member(self):
+        """Team admin can add new members to project."""
+        self.team.add_member(self.nonmember)
+        self.team.refresh_from_db()
+        assert self.nonmember in self.team.members.all()
+        assert self.nonmember not in self.project.members.all()
+        url = reverse('api:projects-add-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.nonmember in self.project.members.all()
+
+    def test_adding_new_member_manager(self):
+        """Project manager can add new members."""
+        self.team.add_member(self.nonmember)
+        self.team.refresh_from_db()
+        assert self.nonmember in self.team.members.all()
+        assert self.nonmember not in self.project.members.all()
+        url = reverse('api:projects-add-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.manager)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.nonmember in self.project.members.all()
+
+    def test_adding_new_member_member(self):
+        """Project member cannot add new members."""
+        self.team.add_member(self.nonmember)
+        self.team.refresh_from_db()
+        assert self.nonmember in self.team.members.all()
+        assert self.nonmember not in self.project.members.all()
+        url = reverse('api:projects-add-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.member)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.project.refresh_from_db()
+        assert self.nonmember not in self.project.members.all()
+
+    def test_removing_member(self):
+        """Team admin can remove members from project."""
+        self.team.add_member(self.nonmember)
+        self.project.add_member(self.nonmember)
+        assert self.nonmember in self.project.members.all()
+        url = reverse('api:projects-remove-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.nonmember not in self.project.members.all()
+
+    def test_removing_member_manager(self):
+        """Project manager can remove members from project."""
+        self.team.add_member(self.nonmember)
+        self.project.add_member(self.nonmember)
+        assert self.nonmember in self.project.members.all()
+        url = reverse('api:projects-remove-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.nonmember not in self.project.members.all()
+
+    def test_removing_member_member(self):
+        """Project member cannot remove members from project."""
+        self.team.add_member(self.nonmember)
+        self.project.add_member(self.nonmember)
+        assert self.nonmember in self.project.members.all()
+        url = reverse('api:projects-remove-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.member)
+        response = self.client.put(url, {'member': 'nonmember'})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.project.refresh_from_db()
+        assert self.nonmember in self.project.members.all()
+
+    def test_archive_project(self):
+        """Can archive."""
+        assert self.project.is_archived == False
+        url = reverse('api:projects-detail', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'is_archived': 'true', 'title': self.project.title})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        assert self.project.is_archived == True
 
 
 # Ticket ViewSet

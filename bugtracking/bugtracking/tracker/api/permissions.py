@@ -122,6 +122,14 @@ class ProjectPermissions(BasePermission):
         return obj.can_user_edit(request.user)
 
 
+class ProjectInvitePermissions(BasePermission):
+    """Only team admins given permission."""
+    message = {'errors': 'Only team administrators may perform that action.'}
+
+    def has_object_permission(self, request, view, obj):
+        return obj.can_user_edit(request.user)
+
+
 class TicketPermissions(BasePermission):
     """
     View permissions: All project members can view all tickets; team admin can view all tickets.

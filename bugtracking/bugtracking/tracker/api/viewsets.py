@@ -116,6 +116,13 @@ class TeamViewSet(viewsets.ModelViewSet):
         except ValidationError as e:
             return Response({'errors': e.message}, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=True, methods=['put'], permission_classes=[permissions.TeamAdminsOnly])
+    def remove_member(self, request, **kwargs):
+        team = self.get_object()
+        user = User.objects.get(username=request.data['member'])
+        team.remove_member(user)
+        return Response({'status': 'User removed from team.'}, status=status.HTTP_200_OK)
+
 
 class TeamMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TeamMembershipSerializer
@@ -194,6 +201,20 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = self.get_object()
         user = request.user
         return Response(project.get_user_project_permissions(user), status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['put'], permission_classes=[IsAuthenticated, permissions.ProjectInvitePermissions])
+    def add_member(self, request, **kwargs):
+        project = self.get_object()
+        user = User.objects.get(username=request.data['member'])
+        project.add_member(user)
+        return Response({'status': 'User added.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['put'], permission_classes=[IsAuthenticated, permissions.ProjectInvitePermissions])
+    def remove_member(self, request, **kwargs):
+        project = self.get_object()
+        user = User.objects.get(username=request.data['member'])
+        project.remove_member(user)
+        return Response({'status': 'User removed.'}, status=status.HTTP_200_OK)
 
 
 class TicketViewSet(viewsets.ModelViewSet):

@@ -210,6 +210,15 @@ class Team(TitleSlugDescriptionModel, models.Model):
         membership = TeamMembership.objects.create(team=self, user=user, role=TeamMembership.Roles.MEMBER)
         membership.save()
 
+    def remove_member(self, user):
+        if user in self.get_admins():
+            raise ValidationError(_('Cannot remove admin.'))
+        if user in self.members.all():
+            membership = TeamMembership.objects.get(team=self, user=user)
+            membership.delete()
+        else:
+            raise ValidationError(_('Cannot remove user. User is not a member of this team.'))
+
     def is_user_member(self, user):
         return user in self.members.all()
 
@@ -342,6 +351,15 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
             membership.save()
         else:
             raise ValidationError(_('Cannot add user. User is not a member of this project\'s team.'))
+
+    def remove_member(self, user):
+        if user==self.manager:
+            raise ValidationError(_('Cannot remove project manager. Demote the user first.'))
+        if user in self.members.all():
+            membership = ProjectMembership.objects.get(project=self, user=user)
+            membership.delete()
+        else:
+            raise ValidationError(_('Cannot remove user. User is not a member of this project.'))
 
     def make_manager(self, user):
         if user == self.manager:
