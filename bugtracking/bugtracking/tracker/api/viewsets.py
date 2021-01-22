@@ -1,4 +1,5 @@
 # stdlib imports
+import datetime as dt
 
 # core django imports
 from django.conf import settings
@@ -123,13 +124,10 @@ class TeamViewSet(viewsets.ModelViewSet):
         team.remove_member(user)
         return Response({'status': 'User removed from team.'}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['put'], permission_classes=[permissions.LeavingTeamPermissions])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.LeavingTeamPermissions])
     def leave_team(self, request, **kwargs):
         team = self.get_object()
-        user = User.objects.get(username=request.data['member'])
-        if request.user != user:
-            return Response({'errors': 'Forbidden. Requesting user does not match user in data payload.'})
-        team.remove_member(user)
+        team.remove_member(request.user)
         return Response({'status': 'Team left successfully.'}, status=status.HTTP_200_OK)
 
 
@@ -163,6 +161,14 @@ class TeamInvitationViewSet(viewsets.ModelViewSet):
                 already_a_member = team.members.filter(email=invitee_email)
                 if already_a_member:
                     raise SerializerValidationError({'errors': 'User is already a member of this team.'})
+                try:
+                    latest_invite = TeamInvitation.objects.filter(team=team, invitee_email=invitee_email).latest()
+                    time_of_last_invite = latest_invite.created
+                    timedelta_since_last_invite = (dt.datetime.now(tz=time_of_last_invite.tzinfo) - time_of_last_invite)
+                    if timedelta_since_last_invite < dt.timedelta(seconds=60 * 60): # one hour
+                        raise SerializerValidationError({'errors': 'User has been invited too recently. Try again later.'})
+                except ObjectDoesNotExist:
+                    pass
                 serializer.save(inviter=inviter, team=team)
                 return Response({'status': 'User invited.'})
             else:

@@ -288,15 +288,15 @@ class TeamInvitation(TimeStampedModel, models.Model):
 
     objects = TeamInvitationManager()
 
-    class Meta:
-        unique_together = ['invitee_email', 'team']
+    # class Meta:
+    #     unique_together = ['invitee_email', 'team']
 
     @property
     def status_name(self):
         return self.get_status_display()
 
     def send_invitation_email(self, extra_info=None):
-        accept_url = f'http://localhost:8000/api/teams/monks-test-team/accept_invitation/?invitation={str(self.id)}'
+        accept_url = f'http://localhost:3000/invitation/?invitation={str(self.id)}&slug={str(self.team.slug)}'
         decline_url = f'http://localhost:8000/api/teams/monks-test-team/decline_invitation/?invitation={str(self.id)}'
         register_url = 'I\'m working on it.'
         context = {

@@ -33,8 +33,8 @@ class TeamCreateRetrieveSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Team
-        fields = ['title', 'slug', 'description', 'memberships', 'created', 'url', 'projects_list', 'user_is_admin']
-        read_only_fields = ['slug', 'created', 'memberships', 'url', 'projects_list', ]
+        fields = ['title', 'slug', 'description', 'memberships', 'created', 'url', 'projects_list', 'user_is_admin', 'admins']
+        read_only_fields = ['slug', 'created', 'memberships', 'url', 'projects_list', 'user_is_admin', 'admins']
         extra_kwargs = {
             "url": {"view_name": "api:teams-detail", "lookup_field": "slug"},
         }

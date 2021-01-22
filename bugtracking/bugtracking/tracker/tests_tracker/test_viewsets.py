@@ -1,4 +1,5 @@
 # stdlib imports
+import datetime as dt
 
 # django core imports
 from django.test import TestCase
@@ -290,7 +291,7 @@ class TestTeamViewSet(APITestCase):
         assert self.member in self.team.members.all()
         url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
         self.client.force_authenticate(self.member)
-        response = self.client.put(url, {'member': self.member.username})
+        response = self.client.get(url)
         assert response.status_code == status.HTTP_200_OK
         self.team.refresh_from_db()
         assert self.member not in self.team.members.all()
@@ -299,7 +300,7 @@ class TestTeamViewSet(APITestCase):
         assert self.admin in self.team.members.all()
         url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
         self.client.force_authenticate(self.admin)
-        response = self.client.put(url, {'member': self.admin.username})
+        response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.team.refresh_from_db()
         assert self.admin in self.team.members.all()
@@ -308,7 +309,7 @@ class TestTeamViewSet(APITestCase):
         assert self.member in self.team.members.all()
         url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
         self.client.force_authenticate(self.admin)
-        response = self.client.put(url, {'member': self.member.username})
+        response = self.client.get(url)
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.team.refresh_from_db()
         assert self.member in self.team.members.all()
@@ -1440,8 +1441,23 @@ class TestTeamInvitationViewSet(APITestCase):
         assert TeamInvitation.objects.count() == number_of_invitations
         assert response.data['errors'] == 'User is already a member of this team.'
 
-    def test_inviting_user_who_is_already_invited(self):
-        """Should not create a new invitation object."""
+    def test_inviting_user_who_was_invited_days_ago(self):
+        """Should create a new invitation object since enough time has passed."""
+        user = self.admin
+        invite = baker.make(TeamInvitation, team=self.team)
+        invite.created = dt.datetime.now() - dt.timedelta(days=5)
+        invite.save()
+        invite.refresh_from_db()
+        assert TeamInvitation.objects.count() == 1
+        email = invite.invitee_email
+        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+        self.client.force_authenticate(user)
+        response = self.client.post(url, {'invitee_email': email})
+        assert response.status_code == status.HTTP_201_CREATED
+        assert TeamInvitation.objects.count() == 2
+
+    def test_inviting_user_who_was_invited_just_now(self):
+        """Should not create a new invitation object as user was just invited recently."""
         user = self.admin
         invite = baker.make(TeamInvitation, team=self.team)
         assert TeamInvitation.objects.count() == 1
@@ -1451,7 +1467,7 @@ class TestTeamInvitationViewSet(APITestCase):
         response = self.client.post(url, {'invitee_email': email})
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert TeamInvitation.objects.count() == 1
-        assert 'already been invited' in response.data['errors']
+
 
 
 class TestInvitationEmailSending(APITestCase):
