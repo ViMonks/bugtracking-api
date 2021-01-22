@@ -411,6 +411,7 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
             'edit': self.can_user_edit(user),
             'update_manager': self.can_user_update_manager(user),
             'create_tickets': self.can_user_create_tickets(user),
+            'assign_developer': user in self.team.get_admins() or user == self.manager
         }
         return permissions
 
@@ -488,7 +489,7 @@ class Ticket(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         return user in self.project.members.all() or user in self.project.team.get_admins() or user == self.user
 
     def can_user_edit(self, user):
-        return user == self.developer or user == self.project.manager or user in self.project.team.get_admins() or user == self.user
+        return user == self.developer or user == self.project.manager or user in self.project.team.get_admins()
 
     def can_user_change_developer(self, user):
         return user in self.project.team.get_admins() or user == self.project.manager

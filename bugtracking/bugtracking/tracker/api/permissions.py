@@ -167,7 +167,7 @@ class TicketPermissions(BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in SAFE_METHODS:
             return obj.can_user_view(request.user)
-        if 'developer' in request.data:
+        if 'developer' in request.data and request.data['developer'] is not None and request.data['developer'] != obj.developer.username:
             if not obj.can_user_change_developer(request.user):
                 self.message['errors'] = "Only team admins and project managers may change a ticket's assigned developer."
                 return False
