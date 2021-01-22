@@ -123,6 +123,15 @@ class TeamViewSet(viewsets.ModelViewSet):
         team.remove_member(user)
         return Response({'status': 'User removed from team.'}, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['put'], permission_classes=[permissions.LeavingTeamPermissions])
+    def leave_team(self, request, **kwargs):
+        team = self.get_object()
+        user = User.objects.get(username=request.data['member'])
+        if request.user != user:
+            return Response({'errors': 'Forbidden. Requesting user does not match user in data payload.'})
+        team.remove_member(user)
+        return Response({'status': 'Team left successfully.'}, status=status.HTTP_200_OK)
+
 
 class TeamMembershipViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TeamMembershipSerializer

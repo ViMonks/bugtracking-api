@@ -27,6 +27,20 @@ class TeamPermissions(BasePermission):
             return False
         return request.user in obj.get_admins()
 
+class LeavingTeamPermissions(BasePermission):
+    """
+    Any user who is part of a team may leave a team.
+    """
+    message = {'errors': 'Something went wrong. Please try again.'}
+
+    def has_object_permission(self, request, view, obj):
+        if request.user in obj.get_admins():
+            self.message['errors'] = 'Administrators cannot leave teams.'
+            return False
+        if request.user in obj.members.all():
+            return True
+        return False
+
 
 class TeamInvitePermissionsForAction(BasePermission):
     """

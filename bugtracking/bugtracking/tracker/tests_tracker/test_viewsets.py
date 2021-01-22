@@ -286,6 +286,32 @@ class TestTeamViewSet(APITestCase):
         assert self.developer not in self.project.members.all()
         assert self.developer != self.ticket.developer
 
+    def test_member_may_leave_team(self):
+        assert self.member in self.team.members.all()
+        url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.member)
+        response = self.client.put(url, {'member': self.member.username})
+        assert response.status_code == status.HTTP_200_OK
+        self.team.refresh_from_db()
+        assert self.member not in self.team.members.all()
+
+    def test_admin_may_not_leave_team(self):
+        assert self.admin in self.team.members.all()
+        url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': self.admin.username})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.team.refresh_from_db()
+        assert self.admin in self.team.members.all()
+
+    def test_user_may_not_force_other_user_to_leave_team(self):
+        assert self.member in self.team.members.all()
+        url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': self.member.username})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        self.team.refresh_from_db()
+        assert self.member in self.team.members.all()
 
 # Project ViewSet
 class TestProjectViewSet(APITestCase):
