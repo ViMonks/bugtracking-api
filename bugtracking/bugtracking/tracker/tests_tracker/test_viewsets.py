@@ -35,6 +35,9 @@ class TestTeamViewSet(APITestCase):
         self.member = base['member']
         self.nonmember = base['nonmember']
         self.manager = base['manager']
+        self.project = base['project']
+        self.ticket = base['ticket']
+        self.developer = base['developer']
         self.team = base['team']
         self.post_data = {'title': 'new team', 'description': 'description'}
         # put_data includes all fields, but only description should be editable
@@ -252,6 +255,37 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         assert self.nonmember in self.team.members.all()
 
+    def test_removing_member_also_removes_member_from_projects(self):
+        """Removing a member from the team also removes him from all associated projects."""
+        assert self.manager in self.team.members.all()
+        assert self.manager in self.project.members.all()
+        assert self.manager == self.project.manager
+        url = reverse('api:teams-remove-member', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'manager'})
+        assert response.status_code == status.HTTP_200_OK
+        self.team.refresh_from_db()
+        self.project.refresh_from_db()
+        assert self.manager not in self.team.members.all()
+        assert self.manager not in self.project.members.all()
+        assert self.manager != self.project.manager
+
+    def test_removing_member_also_removes_member_from_tickets(self):
+        """Removing a member from the team also removes him from all associated tickets."""
+        assert self.developer in self.team.members.all()
+        assert self.developer in self.project.members.all()
+        assert self.developer == self.ticket.developer
+        url = reverse('api:teams-remove-member', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'developer'})
+        assert response.status_code == status.HTTP_200_OK
+        self.team.refresh_from_db()
+        self.project.refresh_from_db()
+        self.ticket.refresh_from_db()
+        assert self.developer not in self.team.members.all()
+        assert self.developer not in self.project.members.all()
+        assert self.developer != self.ticket.developer
+
 
 # Project ViewSet
 class TestProjectViewSet(APITestCase):
@@ -263,6 +297,8 @@ class TestProjectViewSet(APITestCase):
         self.nonmember = base['nonmember']
         self.team = base['team']
         self.project = base['project']
+        self.ticket = base['ticket']
+        self.developer = base['developer']
         self.team_member = user(username='team_member')
         self.team.add_member(self.team_member)
         self.post_data = {'title': 'new project', 'description': 'description'}
@@ -747,6 +783,21 @@ class TestProjectViewSet(APITestCase):
         assert response.status_code == status.HTTP_403_FORBIDDEN
         self.project.refresh_from_db()
         assert self.nonmember in self.project.members.all()
+
+    def test_removing_developer_removes_from_ticket_developer_field(self):
+        """Removing a member who is a developer of a ticket clears that ticket's developer field."""
+        assert self.developer in self.project.members.all()
+        assert self.ticket in self.project.tickets.all()
+        assert self.ticket.developer == self.developer
+        url = reverse('api:projects-remove-member', kwargs={'team_slug': self.team.slug, 'slug': self.project.slug})
+        self.client.force_authenticate(self.admin)
+        response = self.client.put(url, {'member': 'developer'})
+        assert response.status_code == status.HTTP_200_OK
+        self.project.refresh_from_db()
+        self.ticket.refresh_from_db()
+        assert self.developer not in self.project.members.all()
+        assert self.ticket in self.project.tickets.all()
+        assert self.ticket.developer != self.developer
 
     def test_archive_project(self):
         """Can archive."""

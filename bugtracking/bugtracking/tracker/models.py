@@ -214,6 +214,13 @@ class Team(TitleSlugDescriptionModel, models.Model):
         if user in self.get_admins():
             raise ValidationError(_('Cannot remove admin.'))
         if user in self.members.all():
+            team_projects = self.projects.all()
+            for project in team_projects:
+                if user in project.members.all():
+                    if user == project.manager:
+                        project.manager = None
+                        project.save()
+                    project.remove_member(user)
             membership = TeamMembership.objects.get(team=self, user=user)
             membership.delete()
         else:
@@ -356,6 +363,11 @@ class Project(TitleSlugDescriptionModel, TimeStampedModel, models.Model):
         if user==self.manager:
             raise ValidationError(_('Cannot remove project manager. Demote the user first.'))
         if user in self.members.all():
+            project_tickets = self.tickets.all()
+            for ticket in project_tickets:
+                if user == ticket.developer:
+                    ticket.developer = None
+                    ticket.save()
             membership = ProjectMembership.objects.get(project=self, user=user)
             membership.delete()
         else:
