@@ -1978,3 +1978,56 @@ class TestProjectPermissionsEndpoint(APITestCase):
         """Tests the response status code."""
         response = self.client.get(self.url)
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+class TestUserEndpoints(APITestCase):
+    def setUp(self) -> None:
+        base = fac()
+        self.admin = base['admin']
+        self.member = base['member']
+        self.team = base['team']
+        self.project = base['project']
+        self.ticket = base['ticket']
+
+    def test_me(self):
+        user = self.admin
+        self.client.force_authenticate(user)
+        url = reverse('api:user-me')
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['username'] == user.username
+
+    def test_get_response(self):
+        user = self.admin
+        self.client.force_authenticate(user)
+        url = reverse('api:user-detail', kwargs={"username": user.username})
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['username'] == user.username
+
+    def test_get_response_fails_for_other_user(self):
+        user = self.admin
+        self.client.force_authenticate(user)
+        url = reverse('api:user-detail', kwargs={"username": self.member.username})
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert 'username' not in response.data
+
+    def test_user_updates_username(self):
+        user = self.admin
+        assert self.admin.username == 'admin'
+        self.client.force_authenticate(user)
+        url = reverse('api:user-detail', kwargs={"username": user.username})
+        response = self.client.put(url, {'username': 'New_Username'})
+        assert response.status_code == status.HTTP_200_OK
+        self.admin.refresh_from_db()
+        assert self.admin.username == 'New_Username'
+
+    def test_user_cannot_update_another_users_username(self):
+        user = self.admin
+        assert self.member.username == 'member'
+        self.client.force_authenticate(user)
+        url = reverse('api:user-detail', kwargs={"username": self.member.username})
+        response = self.client.put(url, {'username': 'New_Username'})
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        self.member.refresh_from_db()
+        assert self.member.username == 'member'

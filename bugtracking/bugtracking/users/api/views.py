@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from .serializers import UserSerializer
+from .permissions import UserPermissions
 
 User = get_user_model()
 
@@ -14,6 +15,7 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
     serializer_class = UserSerializer
     queryset = User.objects.all()
     lookup_field = "username"
+    permission_classes = [UserPermissions]
 
     def get_queryset(self, *args, **kwargs):
         return self.queryset.filter(id=self.request.user.id)
