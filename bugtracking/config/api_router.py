@@ -13,6 +13,7 @@ else:
 
 router.register("users", UserViewSet)
 router.register(r'teams', TeamViewSet, basename='teams')
+router.register(r'invitations', TeamInvitationViewSet, basename='invitations')
 # don't want the memberships viewset registered by default; only using it to debug stuff
 # router.register(r'memberships', TeamMembershipViewSet, basename='memberships')
 

@@ -1469,6 +1469,34 @@ class TestTeamInvitationViewSet(APITestCase):
         assert TeamInvitation.objects.count() == 1
 
 
+class TestUsersTeamInvitationViewset(APITestCase):
+    def setUp(self):
+        base = fac()
+        self.team = base['team']
+        self.admin = base['admin']
+        self.member = base['member']
+
+    def test_my_invitations_queryset(self):
+        """Can view list."""
+        user = self.admin
+        self.admin.email = 'admin@email.com'
+        self.admin.save()
+        self.member.email = 'member@email.com'
+        self.member.save()
+        other_admin = User.objects.create_user(username='other_admin', password='password')
+        other_team = Team.objects.create_new(title='other_team', description='team_desc', creator=other_admin)
+        invite = baker.make(TeamInvitation, team=other_team, invitee_email='admin@email.com')
+        second_invite = baker.make(TeamInvitation, team=other_team, invitee_email='member@email.com')
+        other_team_invite = baker.make(TeamInvitation, invitee_email='admin@email.com')
+        url = reverse('api:invitations-my-invitations')
+        self.client.force_authenticate(user)
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 2
+        # order flipped because this queryset is ordered in descending order by created field
+        assert response.data[1]['id'] == str(invite.id)
+        assert response.data[0]['id'] == str(other_team_invite.id)
+
 
 class TestInvitationEmailSending(APITestCase):
     def setUp(self) -> None:
@@ -1489,19 +1517,20 @@ class TestInvitationEmailSending(APITestCase):
         assert str(self.team.title) in email.body
         assert 'test@email.com' in email.to
 
-    def test_resending_invitation_email(self):
-        user = self.admin
-        invitation = baker.make(TeamInvitation, team=self.team, inviter=self.admin)
-        url = reverse('api:invitations-resend-email', kwargs={'team_slug': self.team.slug, 'id': str(invitation.id)})
-        self.client.force_authenticate(user)
-        response = self.client.get(url)
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data['status'] == 'Invitation email sent successfully.'
-        assert len(mail.outbox) == 1
-        email = mail.outbox[0]
-        assert email.subject == 'Team Invitation'
-        assert 'You are receiving this invitation again' in email.body
-        assert invitation.invitee_email in email.to
+    # no longer used
+    # def test_resending_invitation_email(self):
+    #     user = self.admin
+    #     invitation = baker.make(TeamInvitation, team=self.team, inviter=self.admin)
+    #     url = reverse('api:invitations-resend-email', kwargs={'team_slug': self.team.slug, 'id': str(invitation.id)})
+    #     self.client.force_authenticate(user)
+    #     response = self.client.get(url)
+    #     assert response.status_code == status.HTTP_200_OK
+    #     assert response.data['status'] == 'Invitation email sent successfully.'
+    #     assert len(mail.outbox) == 1
+    #     email = mail.outbox[0]
+    #     assert email.subject == 'Team Invitation'
+    #     assert 'You are receiving this invitation again' in email.body
+    #     assert invitation.invitee_email in email.to
 
     def test_non_admins_cant_resend_email(self):
         user = self.member

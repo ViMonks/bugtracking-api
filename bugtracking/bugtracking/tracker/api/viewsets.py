@@ -151,6 +151,9 @@ class TeamInvitationViewSet(viewsets.ModelViewSet):
         team = Team.objects.get(slug=team_slug)
         return TeamInvitation.objects.filter(team=team)
 
+    # def get_queryset(self):
+    #     return TeamInvitation.objects.filter(invitee_email=self.request.user)
+
     def perform_create(self, serializer):
         try:
             invitee_email = self.request.data.get('invitee_email')
@@ -186,6 +189,12 @@ class TeamInvitationViewSet(viewsets.ModelViewSet):
         invitation = self.get_object()
         invitation.send_invitation_email(extra_info=extra_info)
         return Response({'status': 'Invitation email sent successfully.'})
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my_invitations(self, request):
+        invitations = TeamInvitation.objects.filter(invitee_email=request.user.email, status=TeamInvitation.Status.PENDING).order_by('-created')
+        serializer = self.get_serializer(invitations, many=True)
+        return Response(serializer.data)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
