@@ -296,6 +296,18 @@ class TestTeamViewSet(APITestCase):
         self.team.refresh_from_db()
         assert self.member not in self.team.members.all()
 
+    def test_leaving_team_deletes_invitation_if_it_exsts(self):
+        assert self.member in self.team.members.all()
+        url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})
+        self.client.force_authenticate(self.member)
+        invitation = baker.make(TeamInvitation, team=self.team, invitee=self.member)
+        assert TeamInvitation.objects.count() == 1
+        response = self.client.get(url)
+        assert response.status_code == status.HTTP_200_OK
+        assert TeamInvitation.objects.count() == 0
+        self.team.refresh_from_db()
+        assert self.member not in self.team.members.all()
+
     def test_admin_may_not_leave_team(self):
         assert self.admin in self.team.members.all()
         url = reverse('api:teams-leave-team', kwargs={'slug': self.team.slug})

@@ -223,6 +223,11 @@ class Team(TitleSlugDescriptionModel, models.Model):
                     project.remove_member(user)
             membership = TeamMembership.objects.get(team=self, user=user)
             membership.delete()
+            try:
+                invitation = TeamInvitation.objects.get(team=self, invitee=user)
+                invitation.delete()
+            except ObjectDoesNotExist:
+                pass
         else:
             raise ValidationError(_('Cannot remove user. User is not a member of this team.'))
 
@@ -287,6 +292,9 @@ class TeamInvitation(TimeStampedModel, models.Model):
     # TimeStampedModel implemented created and modified fields
 
     objects = TeamInvitationManager()
+
+    def __str__(self):
+        return f'Invitation: {self.invitee_email} to {self.team.title}'
 
     class Meta:
         unique_together = ['invitee_email', 'team']
