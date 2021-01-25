@@ -288,8 +288,8 @@ class TeamInvitation(TimeStampedModel, models.Model):
 
     objects = TeamInvitationManager()
 
-    # class Meta:
-    #     unique_together = ['invitee_email', 'team']
+    class Meta:
+        unique_together = ['invitee_email', 'team']
 
     @property
     def status_name(self):
@@ -328,10 +328,18 @@ class TeamInvitation(TimeStampedModel, models.Model):
         self.save()
         self.team.add_member(user)
 
+    # def decline_invite(self, user):
+    #     self.invitee = user
+    #     self.status = self.Status.DECLINED
+    #     self.save()
+
     def decline_invite(self, user):
-        self.invitee = user
-        self.status = self.Status.DECLINED
-        self.save()
+        """
+        Changed my mind on how this works, but the above code is available if I want to go back to old functionality.
+        But be careful: with the above functionality, a user currently can NEVER be reinvited to a team once they decline an invite.
+        User is left in the function parameters on purpose so I don't need to change the viewset function call.
+        """
+        self.delete()
 
 
 # PROJECT AND RELATED THROUGH MODELS

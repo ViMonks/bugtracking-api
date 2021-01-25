@@ -1441,32 +1441,33 @@ class TestTeamInvitationViewSet(APITestCase):
         assert TeamInvitation.objects.count() == number_of_invitations
         assert response.data['errors'] == 'User is already a member of this team.'
 
-    def test_inviting_user_who_was_invited_days_ago(self):
-        """Should create a new invitation object since enough time has passed."""
-        user = self.admin
-        invite = baker.make(TeamInvitation, team=self.team)
-        invite.created = dt.datetime.now() - dt.timedelta(days=5)
-        invite.save()
-        invite.refresh_from_db()
-        assert TeamInvitation.objects.count() == 1
-        email = invite.invitee_email
-        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_authenticate(user)
-        response = self.client.post(url, {'invitee_email': email})
-        assert response.status_code == status.HTTP_201_CREATED
-        assert TeamInvitation.objects.count() == 2
+    # changed my mind: no more creating duplicate invitations
+    # def test_inviting_user_who_was_invited_days_ago(self):
+    #     """Should create a new invitation object since enough time has passed."""
+    #     user = self.admin
+    #     invite = baker.make(TeamInvitation, team=self.team)
+    #     invite.created = dt.datetime.now() - dt.timedelta(days=5)
+    #     invite.save()
+    #     invite.refresh_from_db()
+    #     assert TeamInvitation.objects.count() == 1
+    #     email = invite.invitee_email
+    #     url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+    #     self.client.force_authenticate(user)
+    #     response = self.client.post(url, {'invitee_email': email})
+    #     assert response.status_code == status.HTTP_201_CREATED
+    #     assert TeamInvitation.objects.count() == 2
 
-    def test_inviting_user_who_was_invited_just_now(self):
-        """Should not create a new invitation object as user was just invited recently."""
-        user = self.admin
-        invite = baker.make(TeamInvitation, team=self.team)
-        assert TeamInvitation.objects.count() == 1
-        email = invite.invitee_email
-        url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
-        self.client.force_authenticate(user)
-        response = self.client.post(url, {'invitee_email': email})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert TeamInvitation.objects.count() == 1
+    # def test_inviting_user_who_was_invited_just_now(self):
+    #     """Should not create a new invitation object as user was just invited recently."""
+    #     user = self.admin
+    #     invite = baker.make(TeamInvitation, team=self.team)
+    #     assert TeamInvitation.objects.count() == 1
+    #     email = invite.invitee_email
+    #     url = reverse('api:invitations-list', kwargs={'team_slug': self.team.slug})
+    #     self.client.force_authenticate(user)
+    #     response = self.client.post(url, {'invitee_email': email})
+    #     assert response.status_code == status.HTTP_400_BAD_REQUEST
+    #     assert TeamInvitation.objects.count() == 1
 
 
 class TestUsersTeamInvitationViewset(APITestCase):
@@ -1643,9 +1644,30 @@ class TestDeclineInvitation(APITestCase):
         self.invitee.save()
         self.invitation = baker.make(TeamInvitation, invitee_email=self.invitee.email, team=self.team)
 
+    # def test_invitee_can_decline(self):
+    #     """
+    #     Tests that user can decline the invitation.
+    #     OLD VERSION using the decline method that does not delete.
+    #     """
+    #     user = self.invitee
+    #     assert user not in self.team.members.all()
+    #     url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
+    #     self.client.force_authenticate(user)
+    #     response = self.client.get(url)
+    #     assert response.status_code == status.HTTP_200_OK
+    #     assert response.data['status'] == 'Invitation declined.'
+    #     self.team.refresh_from_db()
+    #     self.invitation.refresh_from_db()
+    #     assert self.invitation.status == TeamInvitation.Status.DECLINED
+    #     assert user not in self.team.members.all()
+
     def test_invitee_can_decline(self):
-        """Tests that user can decline the invitation."""
+        """
+        Tests that user can decline the invitation.
+        New version using deleting decline method.
+        """
         user = self.invitee
+        assert TeamInvitation.objects.count() == 1
         assert user not in self.team.members.all()
         url = f"{reverse('api:teams-decline-invitation', kwargs={'slug': self.team.slug})}?invitation={str(self.invitation.id)}"
         self.client.force_authenticate(user)
@@ -1653,9 +1675,8 @@ class TestDeclineInvitation(APITestCase):
         assert response.status_code == status.HTTP_200_OK
         assert response.data['status'] == 'Invitation declined.'
         self.team.refresh_from_db()
-        self.invitation.refresh_from_db()
-        assert self.invitation.status == TeamInvitation.Status.DECLINED
         assert user not in self.team.members.all()
+        assert TeamInvitation.objects.count() == 0
 
     def test_invalid_team(self):
         """Fails with a 400 bad request."""

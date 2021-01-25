@@ -164,14 +164,14 @@ class TeamInvitationViewSet(viewsets.ModelViewSet):
                 already_a_member = team.members.filter(email=invitee_email)
                 if already_a_member:
                     raise SerializerValidationError({'errors': 'User is already a member of this team.'})
-                try:
-                    latest_invite = TeamInvitation.objects.filter(team=team, invitee_email=invitee_email).latest()
-                    time_of_last_invite = latest_invite.created
-                    timedelta_since_last_invite = (dt.datetime.now(tz=time_of_last_invite.tzinfo) - time_of_last_invite)
-                    if timedelta_since_last_invite < dt.timedelta(seconds=60 * 60): # one hour
-                        raise SerializerValidationError({'errors': 'User has been invited too recently. Try again later.'})
-                except ObjectDoesNotExist:
-                    pass
+                # try:
+                #     latest_invite = TeamInvitation.objects.filter(team=team, invitee_email=invitee_email).latest()
+                #     time_of_last_invite = latest_invite.created
+                #     timedelta_since_last_invite = (dt.datetime.now(tz=time_of_last_invite.tzinfo) - time_of_last_invite)
+                #     if timedelta_since_last_invite < dt.timedelta(seconds=60 * 60): # one hour
+                #         raise SerializerValidationError({'errors': 'User has been invited too recently. Try again later.'})
+                # except ObjectDoesNotExist:
+                #     pass
                 serializer.save(inviter=inviter, team=team)
                 return Response({'status': 'User invited.'})
             else:
