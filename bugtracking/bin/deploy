@@ -1,0 +1,3 @@
+#!/bin/sh
+
+gcloud run deploy django --platform managed --region us-central1 --image gcr.io/bugtracker-api/django --add-cloudsql-instances bugtracker-api:us-central1:bugtracker-db-instance --allow-unauthenticated

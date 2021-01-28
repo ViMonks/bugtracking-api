@@ -1,0 +1,12 @@
+apiVersion: v1
+data:
+  GOOGLE_OAUTH2_KEY: 522427891574-pit1n1pneaiujpp6jfm982lgoj9s07cq.apps.googleusercontent.com
+  GOOGLE_OAUTH2_SECRET: 8NBhTtqP7yg_o25ElOulBF5v
+  IPYTHONDIR: /app/.ipython
+  USE_DOCKER: yes
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    io.kompose.service: django-envs--local--django
+  name: envs--local--django
