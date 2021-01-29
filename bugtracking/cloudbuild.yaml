@@ -14,3 +14,11 @@ steps:
   args: ["-i", "gcr.io/bugtracker-api/django",
          "-s", "bugtracker-api:us-central1:bugtracker-db-instance",
          "--", "python", "manage.py", "collectstatic", "--no-input", "--clear", "--settings=config.settings.gcloud_production"]
+
+- name: "gcr.io/cloud-builders/gcloud"
+  args: ['run', 'deploy', 'django',
+         '--image', 'gcr.io/bugtracker-api/django',
+         '--region', 'us-central1',
+         '--platform', 'managed',
+         '--add-cloudsql-instances', 'bugtracker-api:us-central1:bugtracker-db-instance',
+         '--allow-unauthenticated']
