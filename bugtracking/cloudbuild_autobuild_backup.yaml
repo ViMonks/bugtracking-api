@@ -1,9 +1,14 @@
 steps:
 - name: "gcr.io/cloud-builders/docker"
   args: ["build", "-t", "gcr.io/bugtracker-api/django", "."]
+  dir: 'bugtracking'
 
 - name: "gcr.io/cloud-builders/docker"
   args: ["push", "gcr.io/bugtracker-api/django"]
+
+- name: "gcr.io/cloud-builders/gcloud"
+  entrypoint: 'bash'
+  args: [ '-c', "gcloud secrets versions access latest --secret=firebase-service-account > bugtracking/config/bugtracking-api-auth-firebase-adminsdk-6egb1-a1f025fc29.json" ]
 
 - name: "gcr.io/google-appengine/exec-wrapper"
   args: ["-i", "gcr.io/bugtracker-api/django",
@@ -14,3 +19,11 @@ steps:
   args: ["-i", "gcr.io/bugtracker-api/django",
          "-s", "bugtracker-api:us-central1:bugtracker-db-instance",
          "--", "python", "manage.py", "collectstatic", "--no-input", "--clear", "--settings=config.settings.gcloud_production"]
+
+- name: "gcr.io/cloud-builders/gcloud"
+  args: ['run', 'deploy', 'django',
+         '--image', 'gcr.io/bugtracker-api/django',
+         '--region', 'us-central1',
+         '--platform', 'managed',
+         '--add-cloudsql-instances', 'bugtracker-api:us-central1:bugtracker-db-instance',
+         '--allow-unauthenticated']
