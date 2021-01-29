@@ -8,7 +8,7 @@ steps:
 
 - name: "gcr.io/cloud-builders/gcloud"
   entrypoint: 'bash'
-  args: [ '-c', "gcloud secrets versions access latest --secret=firebase-service-account > app/config/bugtracking-api-auth-firebase-adminsdk-6egb1-a1f025fc29.json" ]
+  args: [ '-c', "gcloud secrets versions access latest --secret=firebase-service-account > bugtracking/config/bugtracking-api-auth-firebase-adminsdk-6egb1-a1f025fc29.json" ]
 
 - name: "gcr.io/google-appengine/exec-wrapper"
   args: ["-i", "gcr.io/bugtracker-api/django",
