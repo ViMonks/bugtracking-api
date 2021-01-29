@@ -308,9 +308,9 @@ class TeamInvitation(TimeStampedModel, models.Model):
         return self.team.title
 
     def send_invitation_email(self, extra_info=None):
-        accept_url = f'http://localhost:3000/invitation/?invitation={str(self.id)}&slug={str(self.team.slug)}'
-        decline_url = f'http://localhost:8000/api/teams/monks-test-team/decline_invitation/?invitation={str(self.id)}'
-        register_url = 'I\'m working on it.'
+        accept_url = f'https://bugtracking.io/invitation/?invitation={str(self.id)}&slug={str(self.team.slug)}'
+        decline_url = f'https://bugtracking.io/dashboard/invitations'
+        register_url = 'https://bugtracking.io/auth'
         context = {
             'accept_url': accept_url,
             'decline_url': decline_url,
@@ -323,7 +323,7 @@ class TeamInvitation(TimeStampedModel, models.Model):
         html_message = render_to_string('tracker/team_invite_email.html', context)
         plain_message = strip_tags(html_message)
         mail.send_mail(
-            subject='Team Invitation',
+            subject='Team Invitation - Bugtracking.io',
             message=plain_message,
             from_email='noreply@bugtracking.io',
             recipient_list=[self.invitee_email],
