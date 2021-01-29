@@ -1,10 +1,14 @@
 steps:
 - name: "gcr.io/cloud-builders/docker"
   args: ["build", "-t", "gcr.io/bugtracker-api/django", "."]
-  dir: '/'
+  dir: 'bugtracking'
 
 - name: "gcr.io/cloud-builders/docker"
   args: ["push", "gcr.io/bugtracker-api/django"]
+
+- name: "gcr.io/cloud-builders/gcloud"
+  entrypoint: 'bash'
+  args: [ 'echo', 'I am running a bash command.' ]
 
 - name: "gcr.io/cloud-builders/gcloud"
   entrypoint: 'bash'
