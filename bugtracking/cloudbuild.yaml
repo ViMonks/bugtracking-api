@@ -10,11 +10,13 @@ steps:
   args: ["-i", "gcr.io/bugtracker-api/django",
          "-s", "bugtracker-api:us-central1:bugtracker-db-instance",
          "--", "python", "manage.py", "migrate", "--settings=config.settings.gcloud_production"]
+  dir: 'bugtracking'
 
 - name: "gcr.io/google-appengine/exec-wrapper"
   args: ["-i", "gcr.io/bugtracker-api/django",
          "-s", "bugtracker-api:us-central1:bugtracker-db-instance",
          "--", "python", "manage.py", "collectstatic", "--no-input", "--clear", "--settings=config.settings.gcloud_production"]
+  dir: 'bugtracking'
 
 - name: "gcr.io/cloud-builders/gcloud"
   args: ['run', 'deploy', 'django',
