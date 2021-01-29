@@ -1,7 +1,7 @@
 steps:
 - name: "gcr.io/cloud-builders/docker"
   args: ["build", "-t", "gcr.io/bugtracker-api/django", "."]
-  dir: ''
+  dir: '/'
 
 - name: "gcr.io/cloud-builders/docker"
   args: ["push", "gcr.io/bugtracker-api/django"]
